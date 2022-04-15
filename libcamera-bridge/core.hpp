@@ -1,5 +1,6 @@
 #pragma once
 #include "libcamera/camera_manager.h"
+#include "libcamera/camera.h"
 #include "rust/cxx.h"
 
 struct BridgeCamera;
