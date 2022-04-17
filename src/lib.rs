@@ -23,6 +23,8 @@ mod tests {
 
         let roles = vec![ffi::StreamRole::StillCapture];
 
-        camera.inner.pin_mut().generate_configuration(&roles);
+        let mut config = camera.inner.pin_mut().generate_configuration(&roles);
+
+        assert_eq!(config.pin_mut().validate(), ffi::CameraConfigurationStatus::Valid);
     }
 }

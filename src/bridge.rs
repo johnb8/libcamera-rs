@@ -9,11 +9,21 @@ pub mod ffi {
 
     #[namespace = "libcamera"]
     #[repr(i32)]
+    #[derive(Debug)]
     enum StreamRole {
         Raw,
         StillCapture,
         VideoRecording,
         Viewfinder,
+    }
+
+    #[namespace = "libcamera"]
+    #[repr(i32)]
+    #[derive(Debug)]
+    enum CameraConfigurationStatus {
+        Valid,
+        Adjusted,
+        Invalid,
     }
 
     unsafe extern "C++" {
@@ -27,6 +37,8 @@ pub mod ffi {
         #[namespace = "libcamera"]
         type CameraConfiguration;
 
+        pub fn validate(self: Pin<&mut CameraConfiguration>) -> CameraConfigurationStatus;
+
         #[namespace = "libcamera"]
         type Camera;
 
@@ -36,6 +48,8 @@ pub mod ffi {
         pub(crate) fn generate_camera_configuration(cam: Pin<&mut Camera>, roles: &Vec<StreamRole>) -> UniquePtr<CameraConfiguration>;
 
         include!("libcamera-rs/libcamera-bridge/core.hpp");
+
+        type CameraConfigurationStatus;
 
         pub fn get_mut_camera(cam: &mut SharedPtr<Camera>) -> Pin<&mut Camera>;
 

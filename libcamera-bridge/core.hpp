@@ -3,6 +3,8 @@
 #include "libcamera/camera.h"
 #include "rust/cxx.h"
 
+using CameraConfigurationStatus = libcamera::CameraConfiguration::Status;
+
 struct BridgeCamera;
 
 class CameraManager: public libcamera::CameraManager {
