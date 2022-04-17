@@ -14,3 +14,8 @@ class CameraManager: public libcamera::CameraManager {
 
 std::unique_ptr<CameraManager>
 make_camera_manager();
+
+libcamera::Camera&
+get_mut_camera(std::shared_ptr<libcamera::Camera>& cam);
+
+std::unique_ptr<libcamera::CameraConfiguration> generate_camera_configuration(libcamera::Camera& cam, const rust::Vec<libcamera::StreamRole>& roles);

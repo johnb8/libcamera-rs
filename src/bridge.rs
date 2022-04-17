@@ -1,3 +1,6 @@
+use std::pin::Pin;
+use cxx::{SharedPtr, UniquePtr};
+
 #[cxx::bridge]
 pub mod ffi {
     struct BridgeCamera {
@@ -30,10 +33,11 @@ pub mod ffi {
         pub fn id(self: &Camera) -> &CxxString;
         pub fn acquire(self: Pin<&mut Camera>) -> i32;
 
-        #[rust_name = "generate_configuration"]
-        pub fn generateConfiguration(self: Pin<&mut Camera>, roles: &CxxVector<StreamRole>) -> UniquePtr<CameraConfiguration>;
+        pub(crate) fn generate_camera_configuration(cam: Pin<&mut Camera>, roles: &Vec<StreamRole>) -> UniquePtr<CameraConfiguration>;
 
         include!("libcamera-rs/libcamera-bridge/core.hpp");
+
+        pub fn get_mut_camera(cam: &mut SharedPtr<Camera>) -> Pin<&mut Camera>;
 
         type CameraManager;
 
@@ -46,3 +50,22 @@ pub mod ffi {
     }
 }
 
+impl ffi::Camera {
+    pub fn generate_configuration(self: Pin<&mut Self>, roles: &Vec<ffi::StreamRole>) -> UniquePtr<ffi::CameraConfiguration> {
+        ffi::generate_camera_configuration(self, roles)
+    }
+}
+
+pub trait MutFromSharedPtr {
+    type Target;
+
+    fn pin_mut(&mut self) -> Pin<&mut Self::Target>;
+}
+
+impl MutFromSharedPtr for SharedPtr<ffi::Camera> {
+    type Target = ffi::Camera;
+
+    fn pin_mut(&mut self) -> Pin<&mut Self::Target> {
+        ffi::get_mut_camera(self)
+    }
+}
