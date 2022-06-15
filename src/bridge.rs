@@ -1,85 +1,91 @@
-use std::pin::Pin;
 use cxx::{SharedPtr, UniquePtr};
+use std::pin::Pin;
 
 #[cxx::bridge]
 pub mod ffi {
-    struct BridgeCamera {
-        inner: SharedPtr<Camera>,
-    }
+  struct BridgeCamera {
+    inner: SharedPtr<Camera>,
+  }
+
+  #[namespace = "libcamera"]
+  #[repr(i32)]
+  #[derive(Debug)]
+  enum StreamRole {
+    Raw,
+    StillCapture,
+    VideoRecording,
+    Viewfinder,
+  }
+
+  #[namespace = "libcamera"]
+  #[repr(i32)]
+  #[derive(Debug)]
+  enum CameraConfigurationStatus {
+    Valid,
+    Adjusted,
+    Invalid,
+  }
+
+  unsafe extern "C++" {
+    include!("libcamera/stream.h");
 
     #[namespace = "libcamera"]
-    #[repr(i32)]
-    #[derive(Debug)]
-    enum StreamRole {
-        Raw,
-        StillCapture,
-        VideoRecording,
-        Viewfinder,
-    }
+    type StreamRole;
+
+    include!("libcamera/camera.h");
 
     #[namespace = "libcamera"]
-    #[repr(i32)]
-    #[derive(Debug)]
-    enum CameraConfigurationStatus {
-        Valid,
-        Adjusted,
-        Invalid,
-    }
+    type CameraConfiguration;
 
-    unsafe extern "C++" {
-        include!("libcamera/stream.h");
+    pub fn validate(self: Pin<&mut CameraConfiguration>) -> CameraConfigurationStatus;
 
-        #[namespace = "libcamera"]
-        type StreamRole;
+    #[namespace = "libcamera"]
+    type Camera;
 
-        include!("libcamera/camera.h");
+    pub fn id(self: &Camera) -> &CxxString;
+    pub fn acquire(self: Pin<&mut Camera>) -> i32;
 
-        #[namespace = "libcamera"]
-        type CameraConfiguration;
+    pub(crate) fn generate_camera_configuration(
+      cam: Pin<&mut Camera>,
+      roles: &Vec<StreamRole>,
+    ) -> UniquePtr<CameraConfiguration>;
 
-        pub fn validate(self: Pin<&mut CameraConfiguration>) -> CameraConfigurationStatus;
+    include!("libcamera-rs/libcamera-bridge/core.hpp");
 
-        #[namespace = "libcamera"]
-        type Camera;
+    type CameraConfigurationStatus;
 
-        pub fn id(self: &Camera) -> &CxxString;
-        pub fn acquire(self: Pin<&mut Camera>) -> i32;
+    pub fn get_mut_camera(cam: &mut SharedPtr<Camera>) -> Pin<&mut Camera>;
 
-        pub(crate) fn generate_camera_configuration(cam: Pin<&mut Camera>, roles: &Vec<StreamRole>) -> UniquePtr<CameraConfiguration>;
+    type CameraManager;
 
-        include!("libcamera-rs/libcamera-bridge/core.hpp");
-
-        type CameraConfigurationStatus;
-
-        pub fn get_mut_camera(cam: &mut SharedPtr<Camera>) -> Pin<&mut Camera>;
-
-        type CameraManager;
-
-        pub fn make_camera_manager() -> UniquePtr<CameraManager>;
-        pub fn start(self: Pin<&mut CameraManager>) -> Result<()>;
-        pub fn stop(self: Pin<&mut CameraManager>);
-        pub fn version(self: Pin<&mut CameraManager>) -> String;
-        pub fn cameras(self: &CameraManager) -> Vec<BridgeCamera>;
-        pub fn get(self: Pin<&mut CameraManager>, id: &CxxString) -> SharedPtr<Camera>;
-    }
+    pub fn make_camera_manager() -> UniquePtr<CameraManager>;
+    pub fn start(self: Pin<&mut CameraManager>) -> Result<()>;
+    pub fn stop(self: Pin<&mut CameraManager>);
+    pub fn version(self: Pin<&mut CameraManager>) -> String;
+    pub fn cameras(self: &CameraManager) -> Vec<BridgeCamera>;
+    pub fn get(self: Pin<&mut CameraManager>, id: &CxxString) -> SharedPtr<Camera>;
+  }
 }
 
 impl ffi::Camera {
-    pub fn generate_configuration(self: Pin<&mut Self>, roles: &Vec<ffi::StreamRole>) -> UniquePtr<ffi::CameraConfiguration> {
-        ffi::generate_camera_configuration(self, roles)
-    }
+  pub fn generate_configuration(
+    self: Pin<&mut Self>,
+    roles: &Vec<ffi::StreamRole>,
+  ) -> UniquePtr<ffi::CameraConfiguration> {
+    ffi::generate_camera_configuration(self, roles)
+  }
 }
 
 pub trait MutFromSharedPtr {
-    type Target;
+  type Target;
 
-    fn pin_mut(&mut self) -> Pin<&mut Self::Target>;
+  fn pin_mut(&mut self) -> Pin<&mut Self::Target>;
 }
 
 impl MutFromSharedPtr for SharedPtr<ffi::Camera> {
-    type Target = ffi::Camera;
+  type Target = ffi::Camera;
 
-    fn pin_mut(&mut self) -> Pin<&mut Self::Target> {
-        ffi::get_mut_camera(self)
-    }
+  fn pin_mut(&mut self) -> Pin<&mut Self::Target> {
+    ffi::get_mut_camera(self)
+  }
 }

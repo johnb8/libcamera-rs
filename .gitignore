@@ -1,5 +1,6 @@
 .idea
 .vscode
+*.bak~
 
 /target
 Cargo.lock
