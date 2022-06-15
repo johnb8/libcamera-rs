@@ -1,6 +1,12 @@
-lint:
+c: check
+chk: check
+lint: check
+check:
 	cargo clippy
+	cargo test -- --test-threads=1
 
-fmt:
+f: format
+fmt: format
+format:
 	clang-format -style=file -i libcamera-bridge/*
 	cargo fmt

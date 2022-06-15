@@ -3,7 +3,7 @@ fn main() {
     .file("libcamera-bridge/core.cpp")
     .flag_if_supported("-std=c++17")
     .include("/usr/local/include/libcamera")
-    .include("/usr/include/libcamera")
+    .include("libcamera/build/include/libcamera")
     .compile("libcamera-bridge");
 
   println!("cargo:rerun-if-changed=src/bridge.rs");

@@ -1,5 +1,8 @@
-use cxx::{SharedPtr, UniquePtr};
+use cxx::SharedPtr;
 use std::pin::Pin;
+
+#[cfg(test)]
+mod test;
 
 #[cxx::bridge]
 pub mod ffi {
@@ -26,36 +29,21 @@ pub mod ffi {
     Invalid,
   }
 
+  #[repr(i32)]
+  #[derive(Debug)]
+  enum DefaultPixelFormat {
+    Rgb888,
+    Bgr888,
+    Yuv420,
+    Mjpeg,
+  }
+
   unsafe extern "C++" {
     include!("libcamera/stream.h");
-
-    #[namespace = "libcamera"]
-    type StreamRole;
-
     include!("libcamera/camera.h");
-
-    #[namespace = "libcamera"]
-    type CameraConfiguration;
-
-    pub fn validate(self: Pin<&mut CameraConfiguration>) -> CameraConfigurationStatus;
-
-    #[namespace = "libcamera"]
-    type Camera;
-
-    pub fn id(self: &Camera) -> &CxxString;
-    pub fn acquire(self: Pin<&mut Camera>) -> i32;
-
-    pub(crate) fn generate_camera_configuration(
-      cam: Pin<&mut Camera>,
-      roles: &Vec<StreamRole>,
-    ) -> UniquePtr<CameraConfiguration>;
-
     include!("libcamera-rs/libcamera-bridge/core.hpp");
 
-    type CameraConfigurationStatus;
-
-    pub fn get_mut_camera(cam: &mut SharedPtr<Camera>) -> Pin<&mut Camera>;
-
+    // Camera Manager
     type CameraManager;
 
     pub fn make_camera_manager() -> UniquePtr<CameraManager>;
@@ -64,15 +52,51 @@ pub mod ffi {
     pub fn version(self: Pin<&mut CameraManager>) -> String;
     pub fn cameras(self: &CameraManager) -> Vec<BridgeCamera>;
     pub fn get(self: Pin<&mut CameraManager>, id: &CxxString) -> SharedPtr<Camera>;
-  }
-}
 
-impl ffi::Camera {
-  pub fn generate_configuration(
-    self: Pin<&mut Self>,
-    roles: &Vec<ffi::StreamRole>,
-  ) -> UniquePtr<ffi::CameraConfiguration> {
-    ffi::generate_camera_configuration(self, roles)
+    // Camera
+    #[namespace = "libcamera"]
+    type Camera;
+
+    pub fn get_mut_camera(cam: &mut SharedPtr<Camera>) -> Pin<&mut Camera>;
+
+    pub fn id(self: &Camera) -> &CxxString;
+    pub fn acquire(self: Pin<&mut Camera>) -> i32;
+    pub fn release(self: Pin<&mut Camera>) -> i32;
+    pub fn stop(self: Pin<&mut Camera>) -> i32;
+
+    pub fn generate_camera_configuration(
+      cam: Pin<&mut Camera>,
+      roles: &Vec<StreamRole>,
+    ) -> UniquePtr<CameraConfiguration>;
+
+    pub fn configure_camera(cam: Pin<&mut Camera>, config: Pin<&mut CameraConfiguration>);
+
+    // Camera Configuration
+    #[namespace = "libcamera"]
+    type CameraConfiguration;
+
+    pub fn at(self: Pin<&mut CameraConfiguration>, index: u32) -> Pin<&mut StreamConfiguration>;
+    pub fn validate(self: Pin<&mut CameraConfiguration>) -> CameraConfigurationStatus;
+
+    type CameraConfigurationStatus;
+
+    #[namespace = "libcamera"]
+    type StreamConfiguration;
+
+    pub fn set_stream_pixel_format(
+      stream: Pin<&mut StreamConfiguration>,
+      format: Pin<&PixelFormat>,
+    );
+    pub fn set_stream_size(stream: Pin<&mut StreamConfiguration>, width: u32, height: u32);
+    pub fn set_stream_buffer_count(stream: Pin<&mut StreamConfiguration>, buffer_count: u32);
+
+    #[namespace = "libcamera"]
+    type StreamRole;
+
+    #[namespace = "libcamera"]
+    type PixelFormat;
+
+    pub fn get_default_pixel_format(format: DefaultPixelFormat) -> Pin<&'static PixelFormat>;
   }
 }
 
