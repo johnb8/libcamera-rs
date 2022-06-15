@@ -56,7 +56,15 @@ fn init_camera() {
     println!("Request Completed");
   });
 
-  let _allocator = ffi::make_frame_buffer_allocator(&camera.inner);
+  let mut allocator = ffi::make_frame_buffer_allocator(&camera.inner);
+
+  let buffer_count = ffi::allocate_frame_buffer_stream(
+    allocator.pin_mut(),
+    ffi::get_stream_from_configuration(config.pin_mut().at(0)),
+  )
+  .unwrap();
+
+  assert_eq!(buffer_count, 4);
 
   camera.inner.pin_mut().release();
 }

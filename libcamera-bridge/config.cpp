@@ -16,3 +16,8 @@ void set_stream_buffer_count(libcamera::StreamConfiguration &conf,
                              unsigned int buffers) {
   conf.bufferCount = buffers;
 }
+
+libcamera::Stream &
+get_stream_from_configuration(libcamera::StreamConfiguration &conf) {
+  return *conf.stream();
+}

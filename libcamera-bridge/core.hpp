@@ -47,6 +47,10 @@ void connect_camera_disconnected(libcamera::Camera &cam,
 std::unique_ptr<libcamera::FrameBufferAllocator>
 make_frame_buffer_allocator(const std::shared_ptr<libcamera::Camera> &cam);
 
+unsigned int
+allocate_frame_buffer_stream(libcamera::FrameBufferAllocator &alloc,
+                             libcamera::Stream &stream);
+
 // Camera Configuration
 
 void set_stream_pixel_format(libcamera::StreamConfiguration &conf,
@@ -55,6 +59,9 @@ void set_stream_size(libcamera::StreamConfiguration &conf, unsigned int width,
                      unsigned int height);
 void set_stream_buffer_count(libcamera::StreamConfiguration &conf,
                              unsigned int buffers);
+
+libcamera::Stream &
+get_stream_from_configuration(libcamera::StreamConfiguration &conf);
 
 // Misc. Types
 

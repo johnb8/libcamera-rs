@@ -14,8 +14,6 @@ void CameraManager::start() {
   if (res < 0) {
     throw(CameraError)(-res);
   }
-
-  return;
 }
 
 rust::String CameraManager::version() {

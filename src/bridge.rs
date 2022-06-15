@@ -158,6 +158,11 @@ pub mod ffi {
 
     pub fn make_frame_buffer_allocator(cam: &SharedPtr<Camera>) -> UniquePtr<FrameBufferAllocator>;
 
+    pub fn allocate_frame_buffer_stream(
+      alloc: Pin<&mut FrameBufferAllocator>,
+      stream: Pin<&mut Stream>,
+    ) -> Result<u32>;
+
     // Camera Configuration
     #[namespace = "libcamera"]
     type CameraConfiguration;
@@ -176,6 +181,11 @@ pub mod ffi {
     );
     pub fn set_stream_size(stream: Pin<&mut StreamConfiguration>, width: u32, height: u32);
     pub fn set_stream_buffer_count(stream: Pin<&mut StreamConfiguration>, buffer_count: u32);
+
+    pub fn get_stream_from_configuration(conf: Pin<&mut StreamConfiguration>) -> Pin<&mut Stream>;
+
+    #[namespace = "libcamera"]
+    type Stream;
 
     // Misc. Types
 

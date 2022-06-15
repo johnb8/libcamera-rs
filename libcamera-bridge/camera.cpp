@@ -25,8 +25,6 @@ void configure_camera(libcamera::Camera &cam,
   if (res < 0) {
     throw(CameraError)(-res);
   }
-
-  return;
 }
 
 void connect_camera_buffer_completed(
