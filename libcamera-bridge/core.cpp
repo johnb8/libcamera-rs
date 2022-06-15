@@ -12,7 +12,7 @@ void CameraManager::start() {
   int res = libcamera::CameraManager::start();
 
   if (res < 0) {
-    throw res;
+    throw(CameraError)(-res);
   }
 
   return;
@@ -54,10 +54,37 @@ void configure_camera(libcamera::Camera &cam,
   int res = cam.configure(&conf);
 
   if (res < 0) {
-    throw res;
+    throw(CameraError)(-res);
   }
 
   return;
+}
+
+void connect_camera_buffer_completed(
+    libcamera::Camera &cam,
+    rust::Fn<void(const libcamera::Request &, const libcamera::FrameBuffer &)>
+        callback) {
+  cam.bufferCompleted.connect(&cam, [&callback](libcamera::Request *request,
+                                                libcamera::FrameBuffer *fb) {
+    callback(*request, *fb);
+  });
+}
+
+void connect_camera_request_completed(
+    libcamera::Camera &cam,
+    rust::Fn<void(const libcamera::Request &)> callback) {
+  cam.requestCompleted.connect(
+      &cam, [&callback](libcamera::Request *request) { callback(*request); });
+}
+
+void connect_camera_disconnected(libcamera::Camera &cam,
+                                 rust::Fn<void()> callback) {
+  cam.disconnected.connect(&cam, [&callback]() { callback(); });
+}
+
+std::unique_ptr<libcamera::FrameBufferAllocator>
+make_frame_buffer_allocator(const std::shared_ptr<libcamera::Camera> &cam) {
+  return std::make_unique<libcamera::FrameBufferAllocator>(cam);
 }
 
 const libcamera::PixelFormat &

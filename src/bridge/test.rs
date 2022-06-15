@@ -52,5 +52,11 @@ fn init_camera() {
 
   ffi::configure_camera(camera.inner.pin_mut(), config.pin_mut());
 
+  ffi::connect_camera_request_completed(camera.inner.pin_mut(), |_req| {
+    println!("Request Completed");
+  });
+
+  let _allocator = ffi::make_frame_buffer_allocator(&camera.inner);
+
   camera.inner.pin_mut().release();
 }
