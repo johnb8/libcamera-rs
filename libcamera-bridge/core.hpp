@@ -8,6 +8,7 @@
 using CameraConfigurationStatus = libcamera::CameraConfiguration::Status;
 
 struct BridgeCamera;
+struct BridgeStreamConfiguration;
 
 enum class DefaultPixelFormat;
 
@@ -25,6 +26,10 @@ std::unique_ptr<CameraManager> make_camera_manager();
 // Camera
 
 libcamera::Camera &get_mut_camera(std::shared_ptr<libcamera::Camera> &cam);
+
+void start_camera(libcamera::Camera &cam, libcamera::ControlList &controls);
+
+void queue_camera_request(libcamera::Camera &cam, libcamera::Request &req);
 
 std::unique_ptr<libcamera::CameraConfiguration>
 generate_camera_configuration(libcamera::Camera &cam,
@@ -51,6 +56,9 @@ unsigned int
 allocate_frame_buffer_stream(libcamera::FrameBufferAllocator &alloc,
                              libcamera::Stream &stream);
 
+void add_request_buffer(libcamera::Request &req, libcamera::Stream &stream,
+                        libcamera::FrameBuffer &buffer);
+
 // Camera Configuration
 
 void set_stream_pixel_format(libcamera::StreamConfiguration &conf,
@@ -62,6 +70,8 @@ void set_stream_buffer_count(libcamera::StreamConfiguration &conf,
 
 libcamera::Stream &
 get_stream_from_configuration(libcamera::StreamConfiguration &conf);
+
+std::unique_ptr<libcamera::ControlList> new_control_list();
 
 // Misc. Types
 

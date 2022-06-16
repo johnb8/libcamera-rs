@@ -18,3 +18,8 @@ allocate_frame_buffer_stream(libcamera::FrameBufferAllocator &alloc,
 
   return (unsigned int)buffers;
 }
+
+void add_request_buffer(libcamera::Request &req, libcamera::Stream &stream,
+                        libcamera::FrameBuffer &buffer) {
+  req.addBuffer(&stream, &buffer);
+}

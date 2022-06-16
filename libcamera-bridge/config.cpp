@@ -1,5 +1,7 @@
 #include "./core.hpp"
 
+#include "libcamera-rs/src/bridge.rs.h"
+
 #include "libcamera/geometry.h"
 
 void set_stream_pixel_format(libcamera::StreamConfiguration &conf,
@@ -20,4 +22,8 @@ void set_stream_buffer_count(libcamera::StreamConfiguration &conf,
 libcamera::Stream &
 get_stream_from_configuration(libcamera::StreamConfiguration &conf) {
   return *conf.stream();
+}
+
+std::unique_ptr<libcamera::ControlList> new_control_list() {
+  return std::make_unique<libcamera::ControlList>();
 }

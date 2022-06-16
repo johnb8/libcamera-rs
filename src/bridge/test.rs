@@ -58,13 +58,29 @@ fn init_camera() {
 
   let mut allocator = ffi::make_frame_buffer_allocator(&camera.inner);
 
-  let buffer_count = ffi::allocate_frame_buffer_stream(
-    allocator.pin_mut(),
-    ffi::get_stream_from_configuration(config.pin_mut().at(0)),
-  )
-  .unwrap();
+  let stream_config_count = config.pin_mut().size() as u32;
+  for i in 0..stream_config_count {
+    let stream_config = config.pin_mut().at(i);
+    let stream = ffi::get_stream_from_configuration(stream_config);
 
-  assert_eq!(buffer_count, 4);
+    let buffer_count = ffi::allocate_frame_buffer_stream(allocator.pin_mut(), stream).unwrap();
 
+    assert_eq!(buffer_count, 4);
+
+    let _request = camera.inner.pin_mut().create_request(0);
+
+    /*
+        let buffers = ffi::get_allocator_buffers(&stream);
+        for i in 0..buffer_count {
+          let buffer = buffers[i];
+          request.pin_mut().add_buffer(&mut stream, &mut buffer);
+        }
+    */
+  }
+
+  let mut controls = ffi::new_control_list();
+  ffi::start_camera(camera.inner.pin_mut(), controls.pin_mut()).unwrap();
+
+  camera.inner.pin_mut().stop();
   camera.inner.pin_mut().release();
 }

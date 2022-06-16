@@ -10,6 +10,10 @@ pub mod ffi {
     inner: SharedPtr<Camera>,
   }
 
+  struct BridgeStreamConfiguration {
+    inner: SharedPtr<StreamConfiguration>,
+  }
+
   #[namespace = "libcamera"]
   #[repr(i32)]
   #[derive(Debug)]
@@ -138,6 +142,13 @@ pub mod ffi {
     pub fn release(self: Pin<&mut Camera>) -> i32;
     pub fn stop(self: Pin<&mut Camera>) -> i32;
 
+    // FIXME: Safety
+    pub fn start_camera(cam: Pin<&mut Camera>, control_list: Pin<&mut ControlList>) -> Result<()>;
+
+    #[cxx_name = "createRequest"]
+    pub fn create_request(self: Pin<&mut Camera>, cookie: u64) -> UniquePtr<Request>;
+    pub fn queue_camera_request(cam: Pin<&mut Camera>, req: Pin<&mut Request>) -> Result<()>;
+
     pub fn generate_camera_configuration(
       cam: Pin<&mut Camera>,
       roles: &Vec<StreamRole>,
@@ -163,12 +174,25 @@ pub mod ffi {
       stream: Pin<&mut Stream>,
     ) -> Result<u32>;
 
+    #[namespace = "libcamera"]
+    type Request;
+
+    pub fn add_request_buffer(
+      req: Pin<&mut Request>,
+      stream: Pin<&mut Stream>,
+      buffer: Pin<&mut FrameBuffer>,
+    );
+
+    #[namespace = "libcamera"]
+    type Stream;
+
     // Camera Configuration
     #[namespace = "libcamera"]
     type CameraConfiguration;
 
     pub fn at(self: Pin<&mut CameraConfiguration>, index: u32) -> Pin<&mut StreamConfiguration>;
     pub fn validate(self: Pin<&mut CameraConfiguration>) -> CameraConfigurationStatus;
+    pub fn size(self: &CameraConfiguration) -> usize;
 
     type CameraConfigurationStatus;
 
@@ -185,7 +209,9 @@ pub mod ffi {
     pub fn get_stream_from_configuration(conf: Pin<&mut StreamConfiguration>) -> Pin<&mut Stream>;
 
     #[namespace = "libcamera"]
-    type Stream;
+    type ControlList;
+
+    pub fn new_control_list() -> UniquePtr<ControlList>;
 
     // Misc. Types
 
@@ -196,9 +222,6 @@ pub mod ffi {
     type PixelFormat;
 
     pub fn get_default_pixel_format(format: DefaultPixelFormat) -> Pin<&'static PixelFormat>;
-
-    #[namespace = "libcamera"]
-    type Request;
 
     #[namespace = "libcamera"]
     type FrameBuffer;

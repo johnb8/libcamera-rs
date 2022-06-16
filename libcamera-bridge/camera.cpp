@@ -6,6 +6,14 @@ libcamera::Camera &get_mut_camera(std::shared_ptr<libcamera::Camera> &cam) {
   return *cam.get();
 }
 
+void start_camera(libcamera::Camera &cam, libcamera::ControlList &controls) {
+  cam.start(&controls);
+}
+
+void queue_camera_request(libcamera::Camera &cam, libcamera::Request &req) {
+  cam.queueRequest(&req);
+}
+
 std::unique_ptr<libcamera::CameraConfiguration>
 generate_camera_configuration(libcamera::Camera &cam,
                               const rust::Vec<libcamera::StreamRole> &roles) {
