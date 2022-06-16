@@ -10,10 +10,6 @@ pub mod ffi {
     inner: SharedPtr<Camera>,
   }
 
-  struct BridgeStreamConfiguration {
-    inner: SharedPtr<StreamConfiguration>,
-  }
-
   #[namespace = "libcamera"]
   #[repr(i32)]
   #[derive(Debug)]
@@ -138,12 +134,19 @@ pub mod ffi {
     pub fn get_mut_camera(cam: &mut SharedPtr<Camera>) -> Pin<&mut Camera>;
 
     pub fn id(self: &Camera) -> &CxxString;
+    #[must_use]
     pub fn acquire(self: Pin<&mut Camera>) -> i32;
+    #[must_use]
     pub fn release(self: Pin<&mut Camera>) -> i32;
+    #[must_use]
     pub fn stop(self: Pin<&mut Camera>) -> i32;
 
     // FIXME: Safety
-    pub fn start_camera(cam: Pin<&mut Camera>, control_list: Pin<&mut ControlList>) -> Result<()>;
+    pub fn start_camera_with_controls(
+      cam: Pin<&mut Camera>,
+      control_list: Pin<&mut ControlList>,
+    ) -> Result<()>;
+    pub fn start_camera(cam: Pin<&mut Camera>) -> Result<()>;
 
     #[cxx_name = "createRequest"]
     pub fn create_request(self: Pin<&mut Camera>, cookie: u64) -> UniquePtr<Request>;
@@ -170,18 +173,31 @@ pub mod ffi {
     pub fn make_frame_buffer_allocator(cam: &SharedPtr<Camera>) -> UniquePtr<FrameBufferAllocator>;
 
     pub fn allocate_frame_buffer_stream(
-      alloc: Pin<&mut FrameBufferAllocator>,
+      alloc: &FrameBufferAllocator,
       stream: Pin<&mut Stream>,
     ) -> Result<u32>;
 
     #[namespace = "libcamera"]
     type Request;
 
-    pub fn add_request_buffer(
+    /// # Safety
+    /// TODO
+    pub unsafe fn add_request_buffer(
       req: Pin<&mut Request>,
       stream: Pin<&mut Stream>,
-      buffer: Pin<&mut FrameBuffer>,
+      buffer: *mut FrameBuffer,
     );
+
+    pub fn get_allocator_buffer_count(
+      alloc: &FrameBufferAllocator,
+      stream: Pin<&mut Stream>,
+    ) -> usize;
+
+    pub fn get_allocator_buffer(
+      alloc: &FrameBufferAllocator,
+      stream: Pin<&mut Stream>,
+      idx: usize,
+    ) -> Result<*mut FrameBuffer>;
 
     #[namespace = "libcamera"]
     type Stream;

@@ -11,8 +11,8 @@ fn main() {
     .compile("libcamera-bridge");
 
   println!("cargo:rerun-if-changed=src/bridge.rs");
-  println!("cargo:rerun-if-changed=libcamera-bridge/core.cpp");
-  println!("cargo:rerun-if-changed=libcamera-bridge/core.hpp");
+  println!("cargo:rerun-if-changed=libcamera-bridge/*.cpp");
+  println!("cargo:rerun-if-changed=libcamera-bridge/*.hpp");
 
   // link libcamera
   println!("cargo:rustc-link-lib=dylib=camera");

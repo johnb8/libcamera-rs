@@ -2,12 +2,27 @@
 
 #include "libcamera-rs/src/bridge.rs.h"
 
+#include <iostream>
+
 libcamera::Camera &get_mut_camera(std::shared_ptr<libcamera::Camera> &cam) {
   return *cam.get();
 }
 
-void start_camera(libcamera::Camera &cam, libcamera::ControlList &controls) {
-  cam.start(&controls);
+void start_camera_with_controls(libcamera::Camera &cam,
+                                libcamera::ControlList &controls) {
+  int ret = cam.start(&controls);
+
+  if (ret < 0) {
+    throw(CameraError)(-ret);
+  }
+}
+
+void start_camera(libcamera::Camera &cam) {
+  int ret = cam.start();
+
+  if (ret < 0) {
+    throw(CameraError)(-ret);
+  }
 }
 
 void queue_camera_request(libcamera::Camera &cam, libcamera::Request &req) {
