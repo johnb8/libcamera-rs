@@ -129,6 +129,12 @@ pub mod ffi {
   struct BindFrameBuffer {
     inner: UniquePtr<FrameBuffer>,
   }
+  struct BindFrameBufferPlane {
+    inner: UniquePtr<FrameBufferPlane>,
+  }
+  struct BindMemoryBuffer {
+    inner: UniquePtr<MemoryBuffer>,
+  }
   struct BindRequest {
     inner: UniquePtr<Request>,
   }
@@ -181,6 +187,24 @@ pub mod ffi {
     ) -> Vec<BindFrameBuffer>;
 
     type FrameBuffer;
+    pub unsafe fn planes(self: Pin<&mut FrameBuffer>) -> Vec<BindFrameBufferPlane>;
+
+    type FrameBufferPlane;
+    pub unsafe fn get_fd(self: Pin<&mut FrameBufferPlane>) -> i32;
+    pub unsafe fn get_offset(self: Pin<&mut FrameBufferPlane>) -> usize;
+    pub unsafe fn get_length(self: Pin<&mut FrameBufferPlane>) -> usize;
+
+    /// File descriptor functions
+    pub unsafe fn fd_len(fd: i32) -> usize;
+    pub unsafe fn mmap_plane(fd: i32, length: usize) -> BindMemoryBuffer;
+
+    type MemoryBuffer;
+    pub unsafe fn sub_buffer(
+      self: Pin<&mut MemoryBuffer>,
+      offset: usize,
+      length: usize,
+    ) -> BindMemoryBuffer;
+    pub unsafe fn read_to_vec(self: Pin<&mut MemoryBuffer>) -> Vec<u8>;
 
     type Request;
     pub unsafe fn add_buffer(
@@ -242,6 +266,20 @@ unsafe impl PinMut for ffi::BindFrameBufferAllocator {
 
 unsafe impl PinMut for ffi::BindFrameBuffer {
   type Inner = ffi::FrameBuffer;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
+
+unsafe impl PinMut for ffi::BindFrameBufferPlane {
+  type Inner = ffi::FrameBufferPlane;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
+
+unsafe impl PinMut for ffi::BindMemoryBuffer {
+  type Inner = ffi::MemoryBuffer;
   unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }

@@ -1,6 +1,8 @@
 use crate::bridge::ffi;
 use crate::bridge::PinMut;
 
+use std::collections::HashMap;
+
 #[test]
 fn it_works() {
   let mut cm = ffi::make_camera_manager();
@@ -27,8 +29,45 @@ fn it_works() {
 
   unsafe { allocator.get().allocate(stream.get()) };
   let mut requests = Vec::new();
+  let mut planes = Vec::new();
   for mut buffer in unsafe { allocator.get().buffers(stream.get()) } {
     let mut request = unsafe { camera.get().create_request() };
+
+    let mut mapped_buffers: HashMap<i32, (Option<ffi::BindMemoryBuffer>, usize, usize)> =
+      HashMap::new();
+    for mut plane in unsafe { buffer.get().planes() } {
+      let fd = unsafe { plane.get().get_fd() };
+      let length = mapped_buffers
+        .entry(fd)
+        .or_insert((None, 0, unsafe { ffi::fd_len(fd) }))
+        .2;
+      if unsafe { plane.get().get_offset() } + unsafe { plane.get().get_length() } > length {
+        panic!(
+          "Plane is out of buffer: buffer length = {length}, plane offset = {}, plane length = {}",
+          unsafe { plane.get().get_offset() },
+          unsafe { plane.get().get_length() }
+        );
+      }
+      let map_len = mapped_buffers[&fd].1;
+      mapped_buffers.get_mut(&fd).unwrap().1 =
+        map_len.max(unsafe { plane.get().get_offset() } + unsafe { plane.get().get_length() });
+    }
+    for mut plane in unsafe { buffer.get().planes() } {
+      let fd = unsafe { plane.get().get_fd() };
+      let mapped_buffer = mapped_buffers.get_mut(&fd).unwrap();
+      if mapped_buffer.0.is_none() {
+        mapped_buffer.0 = Some(unsafe { ffi::mmap_plane(fd, mapped_buffer.1) });
+      }
+      planes.push(unsafe {
+        mapped_buffer
+          .0
+          .as_mut()
+          .unwrap()
+          .get()
+          .sub_buffer(plane.get().get_offset(), plane.get().get_length())
+      });
+    }
+
     unsafe { request.get().add_buffer(stream.get(), buffer.get()) };
     requests.push(request);
   }
@@ -40,6 +79,13 @@ fn it_works() {
   }
 
   std::thread::sleep(std::time::Duration::from_millis(1000));
+
+  for (i, plane) in planes.iter_mut().enumerate() {
+    std::fs::write(&format!("plane_{i}.jpeg"), unsafe {
+      plane.get().read_to_vec()
+    })
+    .unwrap();
+  }
 
   unsafe { camera.get().stop() };
   unsafe { camera.get().release() };

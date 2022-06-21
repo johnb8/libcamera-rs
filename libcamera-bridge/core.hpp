@@ -17,6 +17,9 @@ struct BindStreamConfiguration;
 struct BindStream;
 struct BindFrameBufferAllocator;
 struct BindFrameBuffer;
+struct BindFrameBufferPlane;
+struct BindFd;
+struct BindMemoryBuffer;
 struct BindRequest;
 
 struct CameraConfiguration;
@@ -121,6 +124,40 @@ private:
 public:
   FrameBuffer(libcamera::FrameBuffer *inner_) : inner(inner_) {}
   libcamera::FrameBuffer *into_ptr();
+  rust::Vec<BindFrameBufferPlane> planes();
+};
+
+size_t fd_len(int fd);
+
+struct FrameBufferPlane {
+private:
+  const libcamera::FrameBuffer::Plane *inner;
+
+public:
+  FrameBufferPlane(const libcamera::FrameBuffer::Plane *inner_)
+      : inner(inner_) {}
+
+  int get_fd();
+  size_t get_offset();
+  size_t get_length();
+};
+
+// File descriptor functions
+
+size_t fd_len(int fd);
+BindMemoryBuffer mmap_plane(int fd, size_t len);
+
+struct MemoryBuffer {
+private:
+  const unsigned char *pointer;
+  size_t length;
+
+public:
+  MemoryBuffer(const unsigned char *pointer_, size_t length_)
+      : pointer(pointer_), length(length_) {}
+
+  BindMemoryBuffer sub_buffer(size_t offset, size_t length);
+  rust::Vec<unsigned char> read_to_vec();
 };
 
 struct Request {
