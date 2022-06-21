@@ -1,32 +1,49 @@
-#include "./core.hpp"
+#include "core.hpp"
 
 #include "libcamera-rs/src/bridge.rs.h"
 
-#include <memory>
-
-std::unique_ptr<CameraManager> make_camera_manager() {
-  return std::make_unique<CameraManager>();
+BindCameraManager make_camera_manager() {
+  BindCameraManager manager{
+      .inner = std::make_unique<CameraManager>(
+          std::make_unique<libcamera::CameraManager>()),
+  };
+  return manager;
 }
 
 void CameraManager::start() {
-  int res = libcamera::CameraManager::start();
+  VALIDATE_POINTERS()
 
-  if (res < 0) {
-    throw(CameraError)(-res);
+  int ret = this->inner->start();
+  if (ret < 0) {
+    throw(BindErrorCode)(-ret);
   }
 }
 
-rust::String CameraManager::version() {
-  return libcamera::CameraManager::version();
+void CameraManager::stop() {
+  VALIDATE_POINTERS()
+
+  this->inner->stop();
 }
 
-rust::Vec<BridgeCamera> CameraManager::cameras() const {
-  auto cameras = libcamera::CameraManager::cameras();
-  rust::Vec<BridgeCamera> rust_cameras;
+rust::Vec<rust::String> CameraManager::get_camera_ids() {
+  VALIDATE_POINTERS()
 
-  for (auto camera : cameras) {
-    rust_cameras.push_back(BridgeCamera{.inner = camera});
+  rust::Vec<rust::String> camera_ids;
+  for (std::shared_ptr<libcamera::Camera> cam : this->inner->cameras()) {
+    camera_ids.push_back(cam->id());
   }
+  return camera_ids;
+}
 
-  return rust_cameras;
+BindCamera CameraManager::get_camera_by_id(rust::Str id) {
+  VALIDATE_POINTERS()
+
+  std::shared_ptr<libcamera::Camera> cam = this->inner->get(std::string(id));
+  if (!cam) {
+    throw(BindErrorCode) ENODEV;
+  }
+  BindCamera bind_cam{
+      .inner = std::make_unique<Camera>(cam),
+  };
+  return bind_cam;
 }

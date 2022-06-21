@@ -1,103 +1,46 @@
-use crate::bridge::MutFromSharedPtr;
-use crate::ffi;
+use crate::bridge::ffi;
+use crate::bridge::PinMut;
 
 #[test]
 fn it_works() {
-  let mut manager = ffi::make_camera_manager();
-  manager.pin_mut().version();
-}
+  let mut cm = ffi::make_camera_manager();
+  unsafe { cm.get().start() };
+  let camera_ids = unsafe { cm.get().get_camera_ids() };
+  println!("Available Cameras: {camera_ids:?}");
+  let mut camera = unsafe { cm.get().get_camera_by_id(&camera_ids[0]) };
 
-#[test]
-fn generate_configuration() {
-  let mut manager = ffi::make_camera_manager();
-  manager.pin_mut().start().unwrap();
+  unsafe { camera.get().acquire() };
 
-  let mut cameras = manager.pin_mut().cameras();
-  let camera = &mut cameras[0];
+  let mut config = unsafe {
+    camera
+      .get()
+      .generate_configuration(&[ffi::StreamRole::Viewfinder])
+  };
 
-  let roles = vec![ffi::StreamRole::StillCapture];
+  unsafe { camera.get().configure(config.get()) };
 
-  let mut config = ffi::generate_camera_configuration(camera.inner.pin_mut(), &roles);
+  let mut stream_config = unsafe { config.get().at(0) };
 
-  assert_eq!(
-    config.pin_mut().validate(),
-    ffi::CameraConfigurationStatus::Valid
-  );
-}
+  let mut allocator = unsafe { ffi::make_frame_buffer_allocator(camera.get()) };
 
-#[test]
-/// Test initializing camera
-/// # Safety
-/// Always segfaults.
-fn init_camera() {
-  let mut manager = ffi::make_camera_manager();
-  manager.pin_mut().start().unwrap();
+  let mut stream = unsafe { stream_config.get().stream() };
 
-  let mut cameras = manager.pin_mut().cameras();
-  let camera = &mut cameras[0];
-
-  assert_eq!(camera.inner.pin_mut().acquire(), 0,);
-
-  let roles = vec![ffi::StreamRole::Viewfinder];
-  let mut config = ffi::generate_camera_configuration(camera.inner.pin_mut(), &roles);
-
-  ffi::set_stream_pixel_format(
-    config.pin_mut().at(0),
-    ffi::get_default_pixel_format(ffi::DefaultPixelFormat::Rgb888),
-  );
-  ffi::set_stream_size(config.pin_mut().at(0), 640, 480);
-  ffi::set_stream_buffer_count(config.pin_mut().at(0), 4);
-
-  assert_ne!(
-    config.pin_mut().validate(),
-    ffi::CameraConfigurationStatus::Invalid
-  );
-
-  ffi::configure_camera(camera.inner.pin_mut(), config.pin_mut());
-
-  // Allocate and map buffers
-  let allocator = ffi::make_frame_buffer_allocator(&camera.inner);
-  let stream_config_count = config.pin_mut().size() as u32;
-  assert_eq!(stream_config_count, 1);
-  let buffer_count = ffi::allocate_frame_buffer_stream(
-    allocator.as_ref().unwrap(),
-    ffi::get_stream_from_configuration(config.pin_mut().at(0)),
-  )
-  .unwrap();
-
-  assert_eq!(buffer_count, 4);
-
-  ffi::start_camera(camera.inner.pin_mut()).unwrap();
-
-  let buffer_count = ffi::get_allocator_buffer_count(
-    &allocator,
-    ffi::get_stream_from_configuration(config.pin_mut().at(0)),
-  );
-  for buffer_id in 0..buffer_count {
-    let buffer = ffi::get_allocator_buffer(
-      &allocator,
-      ffi::get_stream_from_configuration(config.pin_mut().at(0)),
-      buffer_id,
-    )
-    .unwrap();
-    let mut request = camera.inner.pin_mut().create_request(0);
-    unsafe {
-      println!("Buf: {buffer:?}");
-      ffi::add_request_buffer(
-        request.pin_mut(),
-        ffi::get_stream_from_configuration(config.pin_mut().at(0)),
-        buffer,
-      );
-    }
-    // ffi::queue_camera_request(camera.inner.pin_mut(), request.pin_mut()).unwrap();
+  unsafe { allocator.get().allocate(stream.get()) };
+  let mut requests = Vec::new();
+  for mut buffer in unsafe { allocator.get().buffers(stream.get()) } {
+    let mut request = unsafe { camera.get().create_request() };
+    unsafe { request.get().add_buffer(stream.get(), buffer.get()) };
+    requests.push(request);
   }
 
-  ffi::connect_camera_request_completed(camera.inner.pin_mut(), |_req| {
-    eprintln!("Request Completed");
-  });
+  unsafe { camera.get().start() };
 
-  std::thread::sleep(std::time::Duration::from_millis(10000));
+  for request in &mut requests {
+    unsafe { camera.get().queue_request(request.get()) };
+  }
 
-  assert_eq!(camera.inner.pin_mut().stop(), 0);
-  assert_eq!(camera.inner.pin_mut().release(), 0);
+  std::thread::sleep(std::time::Duration::from_millis(1000));
+
+  unsafe { camera.get().stop() };
+  unsafe { camera.get().release() };
 }

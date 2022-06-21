@@ -1,86 +1,136 @@
 #pragma once
-#include "libcamera/camera.h"
-#include "libcamera/camera_manager.h"
-#include "libcamera/framebuffer_allocator.h"
-#include "libcamera/stream.h"
+
+#include <libcamera/camera.h>
+#include <libcamera/camera_manager.h>
+#include <libcamera/controls.h>
+#include <libcamera/framebuffer_allocator.h>
+#include <libcamera/request.h>
+#include <libcamera/stream.h>
+#include <libcamera/version.h>
+
 #include "rust/cxx.h"
+
+struct BindCameraManager;
+struct BindCamera;
+struct BindCameraConfiguration;
+struct BindStreamConfiguration;
+struct BindStream;
+struct BindFrameBufferAllocator;
+struct BindFrameBuffer;
+struct BindRequest;
+
+struct CameraConfiguration;
+struct Request;
 
 using CameraConfigurationStatus = libcamera::CameraConfiguration::Status;
 
-struct BridgeCamera;
+// Make sure this->inner is non-null
+#define VALIDATE_POINTERS()                                                    \
+  if (!this->inner) {                                                          \
+    throw(BindErrorCode) EFAULT;                                               \
+  }
 
-enum class DefaultPixelFormat;
+BindCameraManager make_camera_manager();
 
-// Camera Manager
+struct CameraManager {
+private:
+  std::unique_ptr<libcamera::CameraManager> inner;
 
-class CameraManager : public libcamera::CameraManager {
 public:
+  CameraManager(std::unique_ptr<libcamera::CameraManager> inner_)
+      : inner{std::move(inner_)} {}
+
   void start();
-  rust::String version();
-  rust::Vec<BridgeCamera> cameras() const;
+  void stop();
+  rust::Vec<rust::String> get_camera_ids();
+  BindCamera get_camera_by_id(rust::Str id);
 };
 
-std::unique_ptr<CameraManager> make_camera_manager();
+struct Camera {
+private:
+  std::shared_ptr<libcamera::Camera> inner;
 
-// Camera
+public:
+  Camera(std::shared_ptr<libcamera::Camera> inner_)
+      : inner{std::move(inner_)} {}
+  std::shared_ptr<libcamera::Camera> into_shared();
 
-libcamera::Camera &get_mut_camera(std::shared_ptr<libcamera::Camera> &cam);
+  void acquire();
+  void release();
+  BindCameraConfiguration
+      generate_configuration(rust::Slice<const libcamera::StreamRole>);
+  void configure(CameraConfiguration &conf);
+  BindRequest create_request();
+  void queue_request(Request &req);
+  void start();
+  void stop();
+};
 
-void start_camera_with_controls(libcamera::Camera &cam,
-                                libcamera::ControlList &controls);
-void start_camera(libcamera::Camera &cam);
+struct CameraConfiguration {
+private:
+  std::unique_ptr<libcamera::CameraConfiguration> inner;
 
-void queue_camera_request(libcamera::Camera &cam, libcamera::Request &req);
+public:
+  CameraConfiguration(std::unique_ptr<libcamera::CameraConfiguration> inner_)
+      : inner{std::move(inner_)} {}
+  libcamera::CameraConfiguration *into_ptr();
 
-std::unique_ptr<libcamera::CameraConfiguration>
-generate_camera_configuration(libcamera::Camera &cam,
-                              const rust::Vec<libcamera::StreamRole> &roles);
-void configure_camera(libcamera::Camera &cam,
-                      libcamera::CameraConfiguration &conf);
+  BindStreamConfiguration at(unsigned int idx);
+  CameraConfigurationStatus validate();
+};
 
-void connect_camera_buffer_completed(
-    libcamera::Camera &cam,
-    rust::Fn<void(const libcamera::Request &, const libcamera::FrameBuffer &)>
-        callback);
-void connect_camera_request_completed(
-    libcamera::Camera &cam,
-    rust::Fn<void(const libcamera::Request &)> callback);
-void connect_camera_disconnected(libcamera::Camera &cam,
-                                 rust::Fn<void()> callback);
+struct StreamConfiguration {
+private:
+  libcamera::StreamConfiguration *inner;
 
-// Frame Buffers
+public:
+  StreamConfiguration(libcamera::StreamConfiguration *inner_) : inner(inner_) {}
 
-std::unique_ptr<libcamera::FrameBufferAllocator>
-make_frame_buffer_allocator(const std::shared_ptr<libcamera::Camera> &cam);
+  BindStream stream();
+};
 
-unsigned int
-allocate_frame_buffer_stream(const libcamera::FrameBufferAllocator &alloc,
-                             libcamera::Stream &stream);
+struct Stream {
+private:
+  libcamera::Stream *inner;
 
-void add_request_buffer(libcamera::Request &req, libcamera::Stream &stream,
-                        libcamera::FrameBuffer *buffer);
+public:
+  Stream(libcamera::Stream *inner_) : inner(inner_) {}
+  libcamera::Stream *into_ptr();
+};
 
-size_t get_allocator_buffer_count(const libcamera::FrameBufferAllocator &alloc,
-                                  libcamera::Stream &stream);
-libcamera::FrameBuffer *
-get_allocator_buffer(const libcamera::FrameBufferAllocator &alloc,
-                     libcamera::Stream &stream, size_t idx);
+BindFrameBufferAllocator make_frame_buffer_allocator(Camera &camera);
 
-// Camera Configuration
+struct FrameBufferAllocator {
+private:
+  libcamera::FrameBufferAllocator *inner;
 
-void set_stream_pixel_format(libcamera::StreamConfiguration &conf,
-                             const libcamera::PixelFormat &format);
-void set_stream_size(libcamera::StreamConfiguration &conf, unsigned int width,
-                     unsigned int height);
-void set_stream_buffer_count(libcamera::StreamConfiguration &conf,
-                             unsigned int buffers);
+public:
+  FrameBufferAllocator(libcamera::FrameBufferAllocator *inner_)
+      : inner(inner_) {}
+  ~FrameBufferAllocator();
 
-libcamera::Stream &
-get_stream_from_configuration(libcamera::StreamConfiguration &conf);
+  void allocate(Stream &stream);
+  void free(Stream &stream);
+  rust::Vec<BindFrameBuffer> buffers(Stream &stream);
+};
 
-std::unique_ptr<libcamera::ControlList> new_control_list();
+struct FrameBuffer {
+private:
+  libcamera::FrameBuffer *inner;
 
-// Misc. Types
+public:
+  FrameBuffer(libcamera::FrameBuffer *inner_) : inner(inner_) {}
+  libcamera::FrameBuffer *into_ptr();
+};
 
-const libcamera::PixelFormat &
-get_default_pixel_format(DefaultPixelFormat format);
+struct Request {
+private:
+  std::unique_ptr<libcamera::Request> inner;
+
+public:
+  Request(std::unique_ptr<libcamera::Request> inner_)
+      : inner{std::move(inner_)} {}
+  libcamera::Request *into_ptr();
+
+  void add_buffer(Stream &stream, FrameBuffer &buffer);
+};

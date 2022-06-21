@@ -2,72 +2,97 @@
 
 #include "libcamera-rs/src/bridge.rs.h"
 
-#include <iostream>
+std::shared_ptr<libcamera::Camera> Camera::into_shared() {
+  VALIDATE_POINTERS()
 
-libcamera::Camera &get_mut_camera(std::shared_ptr<libcamera::Camera> &cam) {
-  return *cam.get();
+  return this->inner;
 }
 
-void start_camera_with_controls(libcamera::Camera &cam,
-                                libcamera::ControlList &controls) {
-  int ret = cam.start(&controls);
+void Camera::acquire() {
+  VALIDATE_POINTERS()
 
+  int ret = this->inner->acquire();
   if (ret < 0) {
-    throw(CameraError)(-ret);
+    throw(BindErrorCode)(-ret);
   }
 }
 
-void start_camera(libcamera::Camera &cam) {
-  int ret = cam.start();
+void Camera::release() {
+  VALIDATE_POINTERS()
 
+  int ret = this->inner->release();
   if (ret < 0) {
-    throw(CameraError)(-ret);
+    throw(BindErrorCode)(-ret);
   }
 }
 
-void queue_camera_request(libcamera::Camera &cam, libcamera::Request &req) {
-  cam.queueRequest(&req);
-}
+BindCameraConfiguration
+Camera::generate_configuration(rust::Slice<const libcamera::StreamRole> roles) {
+  VALIDATE_POINTERS()
 
-std::unique_ptr<libcamera::CameraConfiguration>
-generate_camera_configuration(libcamera::Camera &cam,
-                              const rust::Vec<libcamera::StreamRole> &roles) {
-  std::vector<libcamera::StreamRole> cpp_roles;
-
-  for (auto role : roles) {
-    cpp_roles.push_back(role);
+  std::vector<libcamera::StreamRole> roles_vec;
+  for (libcamera::StreamRole role : roles) {
+    roles_vec.push_back(role);
   }
 
-  return cam.generateConfiguration(cpp_roles);
+  std::unique_ptr<libcamera::CameraConfiguration> conf =
+      this->inner->generateConfiguration(roles_vec);
+  if (!conf) {
+    throw(BindErrorCode) ENODEV;
+  }
+
+  BindCameraConfiguration bind_conf{
+      .inner = std::make_unique<CameraConfiguration>(std::move(conf)),
+  };
+  return bind_conf;
 }
 
-void configure_camera(libcamera::Camera &cam,
-                      libcamera::CameraConfiguration &conf) {
-  int res = cam.configure(&conf);
+void Camera::configure(CameraConfiguration &conf) {
+  VALIDATE_POINTERS()
 
-  if (res < 0) {
-    throw(CameraError)(-res);
+  int ret = this->inner->configure(conf.into_ptr());
+  if (ret < 0) {
+    throw(BindErrorCode)(-ret);
   }
 }
 
-void connect_camera_buffer_completed(
-    libcamera::Camera &cam,
-    rust::Fn<void(const libcamera::Request &, const libcamera::FrameBuffer &)>
-        callback) {
-  cam.bufferCompleted.connect(&cam, [&callback](libcamera::Request *request,
-                                                libcamera::FrameBuffer *fb) {
-    callback(*request, *fb);
-  });
+BindRequest Camera::create_request() {
+  VALIDATE_POINTERS()
+
+  std::unique_ptr<libcamera::Request> req = this->inner->createRequest();
+  if (!req) {
+    throw(BindErrorCode) ENODEV;
+  }
+
+  BindRequest bind_req{
+      .inner = std::make_unique<Request>(std::move(req)),
+  };
+  return bind_req;
 }
 
-void connect_camera_request_completed(
-    libcamera::Camera &cam,
-    rust::Fn<void(const libcamera::Request &)> callback) {
-  cam.requestCompleted.connect(
-      &cam, [&callback](libcamera::Request *request) { callback(*request); });
+void Camera::queue_request(Request &req) {
+  VALIDATE_POINTERS()
+
+  int ret = this->inner->queueRequest(req.into_ptr());
+  if (ret < 0) {
+    throw(BindErrorCode)(-ret);
+  }
 }
 
-void connect_camera_disconnected(libcamera::Camera &cam,
-                                 rust::Fn<void()> callback) {
-  cam.disconnected.connect(&cam, [&callback]() { callback(); });
+void Camera::start() {
+  VALIDATE_POINTERS()
+
+  int ret = this->inner->start();
+  if (ret < 0) {
+    throw(BindErrorCode)(-ret);
+  }
+}
+
+void Camera::stop() {
+  VALIDATE_POINTERS()
+
+  int ret = this->inner->stop();
+  if (ret < 0) {
+    throw(BindErrorCode)(-ret);
+  }
 }

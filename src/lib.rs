@@ -1,3 +1,3 @@
-mod bridge;
+#![deny(clippy::all)]
 
-pub use bridge::ffi;
+mod bridge;

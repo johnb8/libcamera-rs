@@ -1,4 +1,5 @@
-use cxx::SharedPtr;
+#![allow(dead_code)]
+
 use std::pin::Pin;
 
 #[cfg(test)]
@@ -6,10 +7,6 @@ mod test;
 
 #[cxx::bridge]
 pub mod ffi {
-  struct BridgeCamera {
-    inner: SharedPtr<Camera>,
-  }
-
   #[namespace = "libcamera"]
   #[repr(i32)]
   #[derive(Debug)]
@@ -40,7 +37,7 @@ pub mod ffi {
 
   #[repr(i32)]
   #[derive(Debug)]
-  enum CameraError {
+  enum BindErrorCode {
     /// Operation not permitted
     EPerm = 1,
     /// No such file or directory
@@ -56,7 +53,7 @@ pub mod ffi {
     /// Argument list too long
     E2Big = 7,
     /// EXec format error
-    ENoexec = 8,
+    ENoExec = 8,
     /// Bad file number
     EBadF = 9,
     /// No child processes
@@ -111,149 +108,148 @@ pub mod ffi {
     ERange = 34,
   }
 
+  struct BindCameraManager {
+    inner: UniquePtr<CameraManager>,
+  }
+  struct BindCamera {
+    inner: UniquePtr<Camera>,
+  }
+  struct BindCameraConfiguration {
+    inner: UniquePtr<CameraConfiguration>,
+  }
+  struct BindStreamConfiguration {
+    inner: UniquePtr<StreamConfiguration>,
+  }
+  struct BindStream {
+    inner: UniquePtr<Stream>,
+  }
+  struct BindFrameBufferAllocator {
+    inner: UniquePtr<FrameBufferAllocator>,
+  }
+  struct BindFrameBuffer {
+    inner: UniquePtr<FrameBuffer>,
+  }
+  struct BindRequest {
+    inner: UniquePtr<Request>,
+  }
+
   unsafe extern "C++" {
-    include!("libcamera/stream.h");
-    include!("libcamera/camera.h");
-    include!("libcamera/framebuffer_allocator.h");
     include!("libcamera-rs/libcamera-bridge/core.hpp");
-
-    // Camera Manager
-    type CameraManager;
-
-    pub fn make_camera_manager() -> UniquePtr<CameraManager>;
-    pub fn start(self: Pin<&mut CameraManager>) -> Result<()>;
-    pub fn stop(self: Pin<&mut CameraManager>);
-    pub fn version(self: Pin<&mut CameraManager>) -> String;
-    pub fn cameras(self: &CameraManager) -> Vec<BridgeCamera>;
-    pub fn get(self: Pin<&mut CameraManager>, id: &CxxString) -> SharedPtr<Camera>;
-
-    // Camera
-    #[namespace = "libcamera"]
-    type Camera;
-
-    pub fn get_mut_camera(cam: &mut SharedPtr<Camera>) -> Pin<&mut Camera>;
-
-    pub fn id(self: &Camera) -> &CxxString;
-    #[must_use]
-    pub fn acquire(self: Pin<&mut Camera>) -> i32;
-    #[must_use]
-    pub fn release(self: Pin<&mut Camera>) -> i32;
-    #[must_use]
-    pub fn stop(self: Pin<&mut Camera>) -> i32;
-
-    // FIXME: Safety
-    pub fn start_camera_with_controls(
-      cam: Pin<&mut Camera>,
-      control_list: Pin<&mut ControlList>,
-    ) -> Result<()>;
-    pub fn start_camera(cam: Pin<&mut Camera>) -> Result<()>;
-
-    #[cxx_name = "createRequest"]
-    pub fn create_request(self: Pin<&mut Camera>, cookie: u64) -> UniquePtr<Request>;
-    pub fn queue_camera_request(cam: Pin<&mut Camera>, req: Pin<&mut Request>) -> Result<()>;
-
-    pub fn generate_camera_configuration(
-      cam: Pin<&mut Camera>,
-      roles: &Vec<StreamRole>,
-    ) -> UniquePtr<CameraConfiguration>;
-
-    pub fn configure_camera(cam: Pin<&mut Camera>, config: Pin<&mut CameraConfiguration>);
-
-    pub fn connect_camera_buffer_completed(
-      cam: Pin<&mut Camera>,
-      callback: fn(request: &Request, frame_buffer: &FrameBuffer),
-    );
-    pub fn connect_camera_request_completed(cam: Pin<&mut Camera>, callback: fn(request: &Request));
-    pub fn connect_camera_disconnected(cam: Pin<&mut Camera>, callback: fn());
-
-    // Frame Buffers
-    #[namespace = "libcamera"]
-    type FrameBufferAllocator;
-
-    pub fn make_frame_buffer_allocator(cam: &SharedPtr<Camera>) -> UniquePtr<FrameBufferAllocator>;
-
-    pub fn allocate_frame_buffer_stream(
-      alloc: &FrameBufferAllocator,
-      stream: Pin<&mut Stream>,
-    ) -> Result<u32>;
-
-    #[namespace = "libcamera"]
-    type Request;
-
-    /// # Safety
-    /// TODO
-    pub unsafe fn add_request_buffer(
-      req: Pin<&mut Request>,
-      stream: Pin<&mut Stream>,
-      buffer: *mut FrameBuffer,
-    );
-
-    pub fn get_allocator_buffer_count(
-      alloc: &FrameBufferAllocator,
-      stream: Pin<&mut Stream>,
-    ) -> usize;
-
-    pub fn get_allocator_buffer(
-      alloc: &FrameBufferAllocator,
-      stream: Pin<&mut Stream>,
-      idx: usize,
-    ) -> Result<*mut FrameBuffer>;
-
-    #[namespace = "libcamera"]
-    type Stream;
-
-    // Camera Configuration
-    #[namespace = "libcamera"]
-    type CameraConfiguration;
-
-    pub fn at(self: Pin<&mut CameraConfiguration>, index: u32) -> Pin<&mut StreamConfiguration>;
-    pub fn validate(self: Pin<&mut CameraConfiguration>) -> CameraConfigurationStatus;
-    pub fn size(self: &CameraConfiguration) -> usize;
-
-    type CameraConfigurationStatus;
-
-    #[namespace = "libcamera"]
-    type StreamConfiguration;
-
-    pub fn set_stream_pixel_format(
-      stream: Pin<&mut StreamConfiguration>,
-      format: Pin<&PixelFormat>,
-    );
-    pub fn set_stream_size(stream: Pin<&mut StreamConfiguration>, width: u32, height: u32);
-    pub fn set_stream_buffer_count(stream: Pin<&mut StreamConfiguration>, buffer_count: u32);
-
-    pub fn get_stream_from_configuration(conf: Pin<&mut StreamConfiguration>) -> Pin<&mut Stream>;
-
-    #[namespace = "libcamera"]
-    type ControlList;
-
-    pub fn new_control_list() -> UniquePtr<ControlList>;
-
-    // Misc. Types
 
     #[namespace = "libcamera"]
     type StreamRole;
+    type CameraConfigurationStatus;
 
-    #[namespace = "libcamera"]
-    type PixelFormat;
+    type CameraManager;
+    pub fn make_camera_manager() -> BindCameraManager;
 
-    pub fn get_default_pixel_format(format: DefaultPixelFormat) -> Pin<&'static PixelFormat>;
+    pub unsafe fn start(self: Pin<&mut CameraManager>);
+    pub unsafe fn stop(self: Pin<&mut CameraManager>);
+    pub unsafe fn get_camera_ids(self: Pin<&mut CameraManager>) -> Vec<String>;
+    pub unsafe fn get_camera_by_id(self: Pin<&mut CameraManager>, id: &str) -> BindCamera;
 
-    #[namespace = "libcamera"]
+    type Camera;
+    pub unsafe fn acquire(self: Pin<&mut Camera>);
+    pub unsafe fn release(self: Pin<&mut Camera>);
+    pub unsafe fn generate_configuration(
+      self: Pin<&mut Camera>,
+      roles: &[StreamRole],
+    ) -> BindCameraConfiguration;
+    pub unsafe fn configure(self: Pin<&mut Camera>, conf: Pin<&mut CameraConfiguration>);
+    pub unsafe fn create_request(self: Pin<&mut Camera>) -> BindRequest;
+    pub unsafe fn queue_request(self: Pin<&mut Camera>, req: Pin<&mut Request>);
+    pub unsafe fn start(self: Pin<&mut Camera>);
+    pub unsafe fn stop(self: Pin<&mut Camera>);
+
+    type CameraConfiguration;
+    pub unsafe fn at(self: Pin<&mut CameraConfiguration>, idx: u32) -> BindStreamConfiguration;
+    pub unsafe fn validate(self: Pin<&mut CameraConfiguration>) -> CameraConfigurationStatus;
+
+    type StreamConfiguration;
+    pub unsafe fn stream(self: Pin<&mut StreamConfiguration>) -> BindStream;
+
+    type Stream;
+
+    type FrameBufferAllocator;
+    pub fn make_frame_buffer_allocator(camera: Pin<&mut Camera>) -> BindFrameBufferAllocator;
+
+    pub unsafe fn allocate(self: Pin<&mut FrameBufferAllocator>, stream: Pin<&mut Stream>);
+    pub unsafe fn free(self: Pin<&mut FrameBufferAllocator>, stream: Pin<&mut Stream>);
+    pub unsafe fn buffers(
+      self: Pin<&mut FrameBufferAllocator>,
+      stream: Pin<&mut Stream>,
+    ) -> Vec<BindFrameBuffer>;
+
     type FrameBuffer;
+
+    type Request;
+    pub unsafe fn add_buffer(
+      self: Pin<&mut Request>,
+      stream: Pin<&mut Stream>,
+      buffer: Pin<&mut FrameBuffer>,
+    );
   }
 }
 
-pub trait MutFromSharedPtr {
-  type Target;
-
-  fn pin_mut(&mut self) -> Pin<&mut Self::Target>;
+/// # Safety
+/// The inner pointer to the libcamera object must be valid.
+unsafe trait PinMut {
+  type Inner;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner>;
 }
 
-impl MutFromSharedPtr for SharedPtr<ffi::Camera> {
-  type Target = ffi::Camera;
+unsafe impl PinMut for ffi::BindCameraManager {
+  type Inner = ffi::CameraManager;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
 
-  fn pin_mut(&mut self) -> Pin<&mut Self::Target> {
-    ffi::get_mut_camera(self)
+unsafe impl PinMut for ffi::BindCamera {
+  type Inner = ffi::Camera;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
+
+unsafe impl PinMut for ffi::BindCameraConfiguration {
+  type Inner = ffi::CameraConfiguration;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
+
+unsafe impl PinMut for ffi::BindStreamConfiguration {
+  type Inner = ffi::StreamConfiguration;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
+
+unsafe impl PinMut for ffi::BindStream {
+  type Inner = ffi::Stream;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
+
+unsafe impl PinMut for ffi::BindFrameBufferAllocator {
+  type Inner = ffi::FrameBufferAllocator;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
+
+unsafe impl PinMut for ffi::BindFrameBuffer {
+  type Inner = ffi::FrameBuffer;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
+
+unsafe impl PinMut for ffi::BindRequest {
+  type Inner = ffi::Request;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
   }
 }
