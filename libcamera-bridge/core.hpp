@@ -14,6 +14,8 @@ struct BindCameraManager;
 struct BindCamera;
 struct BindCameraConfiguration;
 struct BindStreamConfiguration;
+struct BindPixelFormat;
+struct BindSize;
 struct BindStream;
 struct BindFrameBufferAllocator;
 struct BindFrameBuffer;
@@ -23,7 +25,10 @@ struct BindMemoryBuffer;
 struct BindRequest;
 
 struct CameraConfiguration;
+struct PixelFormat;
+struct Size;
 struct Request;
+enum class DefaultPixelFormat;
 
 using CameraConfigurationStatus = libcamera::CameraConfiguration::Status;
 
@@ -90,6 +95,42 @@ public:
   StreamConfiguration(libcamera::StreamConfiguration *inner_) : inner(inner_) {}
 
   BindStream stream();
+  void set_pixel_format(BindPixelFormat pixel_format);
+  BindPixelFormat get_pixel_format();
+  void set_size(BindSize size);
+  BindSize get_size();
+  rust::String to_string();
+};
+
+BindPixelFormat get_default_pixel_format(DefaultPixelFormat default_format);
+
+struct PixelFormat {
+private:
+  libcamera::PixelFormat inner;
+
+public:
+  PixelFormat(libcamera::PixelFormat inner_) : inner(inner_) {}
+  libcamera::PixelFormat into_inner();
+
+  rust::String to_string();
+};
+
+BindSize new_size(unsigned int width, unsigned int height);
+
+struct Size {
+private:
+  libcamera::Size inner;
+
+public:
+  Size(libcamera::Size inner_) : inner(inner_) {}
+  libcamera::Size into_inner();
+
+  unsigned int get_width();
+  unsigned int get_height();
+  void set_width(unsigned int width);
+  void set_height(unsigned int height);
+
+  rust::String to_string();
 };
 
 struct Stream {
@@ -170,4 +211,5 @@ public:
   libcamera::Request *into_ptr();
 
   void add_buffer(Stream &stream, FrameBuffer &buffer);
+  rust::String to_string();
 };

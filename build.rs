@@ -4,6 +4,8 @@ fn main() {
     .file("libcamera-bridge/camera.cpp")
     .file("libcamera-bridge/camera_configuration.cpp")
     .file("libcamera-bridge/stream_configuration.cpp")
+    .file("libcamera-bridge/pixel_format.cpp")
+    .file("libcamera-bridge/size.cpp")
     .file("libcamera-bridge/stream.cpp")
     .file("libcamera-bridge/frame_buffer_allocator.cpp")
     .file("libcamera-bridge/frame_buffer.cpp")

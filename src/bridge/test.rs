@@ -19,6 +19,26 @@ fn it_works() {
       .generate_configuration(&[ffi::StreamRole::Viewfinder])
   };
 
+  let mut stream_config = unsafe { config.get().at(0) };
+
+  unsafe {
+    stream_config
+      .get()
+      .set_pixel_format(ffi::get_default_pixel_format(
+        ffi::DefaultPixelFormat::Yuv422,
+      ))
+  };
+
+  unsafe { stream_config.get().set_size(ffi::new_size(640, 480)) };
+
+  let status = unsafe { config.get().validate() };
+  if status == ffi::CameraConfigurationStatus::Invalid {
+    panic!("Invalid Camera Configuration!");
+  }
+  if status == ffi::CameraConfigurationStatus::Adjusted {
+    println!("Camera Configuration Adjusted.");
+  }
+
   unsafe { camera.get().configure(config.get()) };
 
   let mut stream_config = unsafe { config.get().at(0) };

@@ -2,8 +2,6 @@
 
 #include "libcamera-rs/src/bridge.rs.h"
 
-#include <iostream>
-
 void Request::add_buffer(Stream &stream, FrameBuffer &buffer) {
   VALIDATE_POINTERS()
 
@@ -18,3 +16,5 @@ libcamera::Request *Request::into_ptr() {
 
   return this->inner.get();
 }
+
+rust::String Request::to_string() { return this->inner->toString(); }

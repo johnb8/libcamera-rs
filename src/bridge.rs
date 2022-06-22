@@ -29,9 +29,16 @@ pub mod ffi {
   #[repr(i32)]
   #[derive(Debug)]
   enum DefaultPixelFormat {
+    R8,
     Rgb888,
+    Rgb565,
     Bgr888,
+    Yuyv,
+    Yvyu,
     Yuv420,
+    Yuv422,
+    Yvu422,
+    Yuv444,
     Mjpeg,
   }
 
@@ -117,6 +124,12 @@ pub mod ffi {
   struct BindCameraConfiguration {
     inner: UniquePtr<CameraConfiguration>,
   }
+  struct BindPixelFormat {
+    inner: UniquePtr<PixelFormat>,
+  }
+  struct BindSize {
+    inner: UniquePtr<Size>,
+  }
   struct BindStreamConfiguration {
     inner: UniquePtr<StreamConfiguration>,
   }
@@ -173,6 +186,20 @@ pub mod ffi {
 
     type StreamConfiguration;
     pub unsafe fn stream(self: Pin<&mut StreamConfiguration>) -> BindStream;
+    pub unsafe fn set_pixel_format(
+      self: Pin<&mut StreamConfiguration>,
+      pixel_format: BindPixelFormat,
+    );
+    pub unsafe fn get_pixel_format(self: Pin<&mut StreamConfiguration>) -> BindPixelFormat;
+    pub unsafe fn set_size(self: Pin<&mut StreamConfiguration>, size: BindSize);
+    pub unsafe fn get_size(self: Pin<&mut StreamConfiguration>) -> BindSize;
+    pub unsafe fn to_string(self: Pin<&mut StreamConfiguration>) -> String;
+
+    type PixelFormat;
+    pub fn get_default_pixel_format(default_format: DefaultPixelFormat) -> BindPixelFormat;
+
+    type Size;
+    pub fn new_size(width: u32, height: u32) -> BindSize;
 
     type Stream;
 
@@ -245,6 +272,20 @@ unsafe impl PinMut for ffi::BindCameraConfiguration {
 
 unsafe impl PinMut for ffi::BindStreamConfiguration {
   type Inner = ffi::StreamConfiguration;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
+
+unsafe impl PinMut for ffi::BindPixelFormat {
+  type Inner = ffi::PixelFormat;
+  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
+
+unsafe impl PinMut for ffi::BindSize {
+  type Inner = ffi::Size;
   unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
