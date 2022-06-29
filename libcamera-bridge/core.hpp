@@ -1,3 +1,6 @@
+#ifndef _HOME_BEN1JEN_GITLAB_LIBCAMERA_RS_LIBCAMERA_BRIDGE_CORE_HPP
+#define _HOME_BEN1JEN_GITLAB_LIBCAMERA_RS_LIBCAMERA_BRIDGE_CORE_HPP
+
 #pragma once
 
 #include <libcamera/camera.h>
@@ -45,12 +48,12 @@ private:
   std::unique_ptr<libcamera::CameraManager> inner;
 
 public:
-  CameraManager(std::unique_ptr<libcamera::CameraManager> inner_)
+  explicit CameraManager(std::unique_ptr<libcamera::CameraManager> inner_)
       : inner{std::move(inner_)} {}
 
   void start();
   void stop();
-  rust::Vec<rust::String> get_camera_ids();
+  [[nodiscard]] rust::Vec<rust::String> get_camera_ids() const;
   BindCamera get_camera_by_id(rust::Str id);
 };
 
@@ -59,14 +62,14 @@ private:
   std::shared_ptr<libcamera::Camera> inner;
 
 public:
-  Camera(std::shared_ptr<libcamera::Camera> inner_)
+  explicit Camera(std::shared_ptr<libcamera::Camera> inner_)
       : inner{std::move(inner_)} {}
   std::shared_ptr<libcamera::Camera> into_shared();
 
   void acquire();
   void release();
-  BindCameraConfiguration
-      generate_configuration(rust::Slice<const libcamera::StreamRole>);
+  BindCameraConfiguration generate_configuration(
+      rust::Slice<const libcamera::StreamRole> /*roles*/);
   void configure(CameraConfiguration &conf);
   BindRequest create_request();
   void queue_request(Request &req);
@@ -79,7 +82,8 @@ private:
   std::unique_ptr<libcamera::CameraConfiguration> inner;
 
 public:
-  CameraConfiguration(std::unique_ptr<libcamera::CameraConfiguration> inner_)
+  explicit CameraConfiguration(
+      std::unique_ptr<libcamera::CameraConfiguration> inner_)
       : inner{std::move(inner_)} {}
   libcamera::CameraConfiguration *into_ptr();
 
@@ -92,16 +96,17 @@ private:
   libcamera::StreamConfiguration *inner;
 
 public:
-  StreamConfiguration(libcamera::StreamConfiguration *inner_) : inner(inner_) {}
+  explicit StreamConfiguration(libcamera::StreamConfiguration *inner_)
+      : inner(inner_) {}
 
-  BindStream stream();
+  [[nodiscard]] BindStream stream() const;
   void set_pixel_format(BindPixelFormat pixel_format);
-  BindPixelFormat get_pixel_format();
+  [[nodiscard]] BindPixelFormat get_pixel_format() const;
   void set_size(BindSize size);
-  BindSize get_size();
+  [[nodiscard]] BindSize get_size() const;
   void set_buffer_count(size_t buffer_count);
-  size_t get_buffer_count();
-  rust::String to_string();
+  [[nodiscard]] size_t get_buffer_count() const;
+  [[nodiscard]] rust::String raw_to_string() const;
 };
 
 BindPixelFormat get_default_pixel_format(DefaultPixelFormat default_format);
@@ -111,10 +116,10 @@ private:
   libcamera::PixelFormat inner;
 
 public:
-  PixelFormat(libcamera::PixelFormat inner_) : inner(inner_) {}
+  explicit PixelFormat(libcamera::PixelFormat inner_) : inner(inner_) {}
   libcamera::PixelFormat into_inner();
 
-  rust::String to_string();
+  [[nodiscard]] rust::String raw_to_string() const;
 };
 
 BindSize new_size(unsigned int width, unsigned int height);
@@ -124,15 +129,15 @@ private:
   libcamera::Size inner;
 
 public:
-  Size(libcamera::Size inner_) : inner(inner_) {}
+  explicit Size(libcamera::Size inner_) : inner(inner_) {}
   libcamera::Size into_inner();
 
-  unsigned int get_width() const;
-  unsigned int get_height() const;
   void set_width(unsigned int width);
+  [[nodiscard]] unsigned int get_width() const;
   void set_height(unsigned int height);
+  [[nodiscard]] unsigned int get_height() const;
 
-  rust::String to_string();
+  [[nodiscard]] rust::String raw_to_string() const;
 };
 
 struct Stream {
@@ -140,24 +145,25 @@ private:
   libcamera::Stream *inner;
 
 public:
-  Stream(libcamera::Stream *inner_) : inner(inner_) {}
+  explicit Stream(libcamera::Stream *inner_) : inner(inner_) {}
   libcamera::Stream *into_ptr();
+  const libcamera::Stream *into_ptr() const;
 };
 
 BindFrameBufferAllocator make_frame_buffer_allocator(Camera &camera);
 
 struct FrameBufferAllocator {
 private:
-  libcamera::FrameBufferAllocator *inner;
+  std::unique_ptr<libcamera::FrameBufferAllocator> inner;
 
 public:
-  FrameBufferAllocator(libcamera::FrameBufferAllocator *inner_)
-      : inner(inner_) {}
-  ~FrameBufferAllocator();
+  explicit FrameBufferAllocator(
+      std::unique_ptr<libcamera::FrameBufferAllocator> inner_)
+      : inner{std::move(inner_)} {}
 
   size_t allocate(Stream &stream);
   void free(Stream &stream);
-  rust::Vec<BindFrameBuffer> buffers(Stream &stream);
+  rust::Vec<BindFrameBuffer> buffers(Stream &stream) const;
 };
 
 struct FrameBuffer {
@@ -165,9 +171,9 @@ private:
   libcamera::FrameBuffer *inner;
 
 public:
-  FrameBuffer(libcamera::FrameBuffer *inner_) : inner(inner_) {}
+  explicit FrameBuffer(libcamera::FrameBuffer *inner_) : inner(inner_) {}
   libcamera::FrameBuffer *into_ptr();
-  rust::Vec<BindFrameBufferPlane> planes();
+  [[nodiscard]] rust::Vec<BindFrameBufferPlane> planes() const;
 };
 
 size_t fd_len(int fd);
@@ -177,17 +183,16 @@ private:
   const libcamera::FrameBuffer::Plane *inner;
 
 public:
-  FrameBufferPlane(const libcamera::FrameBuffer::Plane *inner_)
+  explicit FrameBufferPlane(const libcamera::FrameBuffer::Plane *inner_)
       : inner(inner_) {}
 
-  int get_fd();
-  size_t get_offset();
-  size_t get_length();
+  [[nodiscard]] int get_fd() const;
+  [[nodiscard]] size_t get_offset() const;
+  [[nodiscard]] size_t get_length() const;
 };
 
 // File descriptor functions
 
-size_t fd_len(int fd);
 BindMemoryBuffer mmap_plane(int fd, size_t len);
 
 struct MemoryBuffer {
@@ -200,7 +205,7 @@ public:
       : pointer(pointer_), length(length_) {}
 
   BindMemoryBuffer sub_buffer(size_t offset, size_t length);
-  rust::Vec<unsigned char> read_to_vec();
+  [[nodiscard]] rust::Vec<unsigned char> read_to_vec() const;
 };
 
 struct Request {
@@ -208,10 +213,12 @@ private:
   std::unique_ptr<libcamera::Request> inner;
 
 public:
-  Request(std::unique_ptr<libcamera::Request> inner_)
+  explicit Request(std::unique_ptr<libcamera::Request> inner_)
       : inner{std::move(inner_)} {}
   libcamera::Request *into_ptr();
 
-  void add_buffer(Stream &stream, FrameBuffer &buffer);
-  rust::String to_string();
+  void add_buffer(const Stream &stream, FrameBuffer &buffer);
+  [[nodiscard]] rust::String raw_to_string() const;
 };
+
+#endif

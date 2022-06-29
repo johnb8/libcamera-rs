@@ -11,12 +11,12 @@ BindSize new_size(unsigned int width, unsigned int height) {
 
 libcamera::Size Size::into_inner() { return this->inner; }
 
-unsigned int Size::get_width() const { return this->inner.width; }
-
-unsigned int Size::get_height() const { return this->inner.height; }
-
 void Size::set_width(unsigned int width) { this->inner.width = width; }
+
+unsigned int Size::get_width() const { return this->inner.width; }
 
 void Size::set_height(unsigned int height) { this->inner.height = height; }
 
-rust::String Size::to_string() { return this->inner.toString(); }
+unsigned int Size::get_height() const { return this->inner.height; }
+
+rust::String Size::raw_to_string() const { return this->inner.toString(); }

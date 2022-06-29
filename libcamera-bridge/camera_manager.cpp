@@ -25,7 +25,7 @@ void CameraManager::stop() {
   this->inner->stop();
 }
 
-rust::Vec<rust::String> CameraManager::get_camera_ids() {
+rust::Vec<rust::String> CameraManager::get_camera_ids() const {
   VALIDATE_POINTERS()
 
   rust::Vec<rust::String> camera_ids;

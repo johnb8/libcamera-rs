@@ -54,4 +54,6 @@ BindPixelFormat get_default_pixel_format(DefaultPixelFormat default_format) {
 
 libcamera::PixelFormat PixelFormat::into_inner() { return this->inner; }
 
-rust::String PixelFormat::to_string() { return this->inner.toString(); }
+rust::String PixelFormat::raw_to_string() const {
+  return this->inner.toString();
+}

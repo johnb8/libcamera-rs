@@ -8,7 +8,7 @@ libcamera::FrameBuffer *FrameBuffer::into_ptr() {
   return this->inner;
 }
 
-rust::Vec<BindFrameBufferPlane> FrameBuffer::planes() {
+rust::Vec<BindFrameBufferPlane> FrameBuffer::planes() const {
   VALIDATE_POINTERS()
 
   rust::Vec<BindFrameBufferPlane> vec;

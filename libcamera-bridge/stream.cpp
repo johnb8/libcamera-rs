@@ -7,3 +7,9 @@ libcamera::Stream *Stream::into_ptr() {
 
   return this->inner;
 }
+
+const libcamera::Stream *Stream::into_ptr() const {
+  VALIDATE_POINTERS()
+
+  return this->inner;
+}

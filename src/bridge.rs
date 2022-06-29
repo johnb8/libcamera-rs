@@ -164,7 +164,7 @@ pub mod ffi {
 
     pub unsafe fn start(self: Pin<&mut CameraManager>) -> Result<()>;
     pub unsafe fn stop(self: Pin<&mut CameraManager>);
-    pub unsafe fn get_camera_ids(self: Pin<&mut CameraManager>) -> Vec<String>;
+    pub unsafe fn get_camera_ids(self: &CameraManager) -> Vec<String>;
     pub unsafe fn get_camera_by_id(self: Pin<&mut CameraManager>, id: &str) -> Result<BindCamera>;
 
     type Camera;
@@ -191,23 +191,29 @@ pub mod ffi {
     pub unsafe fn validate(self: Pin<&mut CameraConfiguration>) -> CameraConfigurationStatus;
 
     type StreamConfiguration;
-    pub unsafe fn stream(self: Pin<&mut StreamConfiguration>) -> BindStream;
+    pub unsafe fn stream(self: &StreamConfiguration) -> BindStream;
     pub unsafe fn set_pixel_format(
       self: Pin<&mut StreamConfiguration>,
       pixel_format: BindPixelFormat,
     );
-    pub unsafe fn get_pixel_format(self: Pin<&mut StreamConfiguration>) -> BindPixelFormat;
+    pub unsafe fn get_pixel_format(self: &StreamConfiguration) -> BindPixelFormat;
     pub unsafe fn set_size(self: Pin<&mut StreamConfiguration>, size: BindSize);
-    pub unsafe fn get_size(self: Pin<&mut StreamConfiguration>) -> BindSize;
+    pub unsafe fn get_size(self: &StreamConfiguration) -> BindSize;
     pub unsafe fn set_buffer_count(self: Pin<&mut StreamConfiguration>, buffer_count: usize);
-    pub unsafe fn get_buffer_count(self: Pin<&mut StreamConfiguration>) -> usize;
-    pub unsafe fn to_string(self: Pin<&mut StreamConfiguration>) -> String;
+    pub unsafe fn get_buffer_count(self: &StreamConfiguration) -> usize;
+    pub unsafe fn raw_to_string(self: &StreamConfiguration) -> String;
 
     type PixelFormat;
     pub fn get_default_pixel_format(default_format: DefaultPixelFormat) -> BindPixelFormat;
+    pub fn raw_to_string(self: &PixelFormat) -> String;
 
     type Size;
     pub fn new_size(width: u32, height: u32) -> BindSize;
+    pub fn set_width(self: Pin<&mut Size>, width: u32);
+    pub fn get_width(self: &Size) -> u32;
+    pub fn set_height(self: Pin<&mut Size>, height: u32);
+    pub fn get_height(self: &Size) -> u32;
+    pub fn raw_to_string(self: &Size) -> String;
 
     type Stream;
 
@@ -223,17 +229,17 @@ pub mod ffi {
       stream: Pin<&mut Stream>,
     ) -> Result<()>;
     pub unsafe fn buffers(
-      self: Pin<&mut FrameBufferAllocator>,
+      self: &FrameBufferAllocator,
       stream: Pin<&mut Stream>,
     ) -> Vec<BindFrameBuffer>;
 
     type FrameBuffer;
-    pub unsafe fn planes(self: Pin<&mut FrameBuffer>) -> Vec<BindFrameBufferPlane>;
+    pub unsafe fn planes(self: &FrameBuffer) -> Vec<BindFrameBufferPlane>;
 
     type FrameBufferPlane;
-    pub unsafe fn get_fd(self: Pin<&mut FrameBufferPlane>) -> i32;
-    pub unsafe fn get_offset(self: Pin<&mut FrameBufferPlane>) -> usize;
-    pub unsafe fn get_length(self: Pin<&mut FrameBufferPlane>) -> usize;
+    pub unsafe fn get_fd(self: &FrameBufferPlane) -> i32;
+    pub unsafe fn get_offset(self: &FrameBufferPlane) -> usize;
+    pub unsafe fn get_length(self: &FrameBufferPlane) -> usize;
 
     /// File descriptor functions
     pub unsafe fn fd_len(fd: i32) -> Result<usize>;
@@ -245,104 +251,143 @@ pub mod ffi {
       offset: usize,
       length: usize,
     ) -> Result<BindMemoryBuffer>;
-    pub unsafe fn read_to_vec(self: Pin<&mut MemoryBuffer>) -> Vec<u8>;
+    pub unsafe fn read_to_vec(self: &MemoryBuffer) -> Vec<u8>;
 
     type Request;
     pub unsafe fn add_buffer(
       self: Pin<&mut Request>,
-      stream: Pin<&mut Stream>,
+      stream: &Stream,
       buffer: Pin<&mut FrameBuffer>,
     ) -> Result<()>;
+
+    pub fn raw_to_string(self: &Request) -> String;
   }
 }
 
 /// # Safety
 /// The inner pointer to the libcamera object must be valid.
-unsafe trait PinMut {
+unsafe trait GetInner {
   type Inner;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner>;
+  unsafe fn get(&self) -> &Self::Inner;
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner>;
 }
 
-unsafe impl PinMut for ffi::BindCameraManager {
+unsafe impl GetInner for ffi::BindCameraManager {
   type Inner = ffi::CameraManager;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
 }
 
-unsafe impl PinMut for ffi::BindCamera {
+unsafe impl GetInner for ffi::BindCamera {
   type Inner = ffi::Camera;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
 }
 
-unsafe impl PinMut for ffi::BindCameraConfiguration {
+unsafe impl GetInner for ffi::BindCameraConfiguration {
   type Inner = ffi::CameraConfiguration;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
 }
 
-unsafe impl PinMut for ffi::BindStreamConfiguration {
+unsafe impl GetInner for ffi::BindStreamConfiguration {
   type Inner = ffi::StreamConfiguration;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
 }
 
-unsafe impl PinMut for ffi::BindPixelFormat {
+unsafe impl GetInner for ffi::BindPixelFormat {
   type Inner = ffi::PixelFormat;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
 }
 
-unsafe impl PinMut for ffi::BindSize {
+unsafe impl GetInner for ffi::BindSize {
   type Inner = ffi::Size;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
 }
 
-unsafe impl PinMut for ffi::BindStream {
+unsafe impl GetInner for ffi::BindStream {
   type Inner = ffi::Stream;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
 }
 
-unsafe impl PinMut for ffi::BindFrameBufferAllocator {
+unsafe impl GetInner for ffi::BindFrameBufferAllocator {
   type Inner = ffi::FrameBufferAllocator;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
 }
 
-unsafe impl PinMut for ffi::BindFrameBuffer {
+unsafe impl GetInner for ffi::BindFrameBuffer {
   type Inner = ffi::FrameBuffer;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
 }
 
-unsafe impl PinMut for ffi::BindFrameBufferPlane {
+unsafe impl GetInner for ffi::BindFrameBufferPlane {
   type Inner = ffi::FrameBufferPlane;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
 }
 
-unsafe impl PinMut for ffi::BindMemoryBuffer {
+unsafe impl GetInner for ffi::BindMemoryBuffer {
   type Inner = ffi::MemoryBuffer;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
 }
 
-unsafe impl PinMut for ffi::BindRequest {
+unsafe impl GetInner for ffi::BindRequest {
   type Inner = ffi::Request;
-  unsafe fn get(&mut self) -> Pin<&mut Self::Inner> {
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
     self.inner.pin_mut()
   }
 }

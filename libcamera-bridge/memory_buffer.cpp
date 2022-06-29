@@ -15,7 +15,7 @@ BindMemoryBuffer MemoryBuffer::sub_buffer(size_t offset, size_t length) {
   return buffer;
 }
 
-rust::Vec<unsigned char> MemoryBuffer::read_to_vec() {
+rust::Vec<unsigned char> MemoryBuffer::read_to_vec() const {
   rust::Vec<unsigned char> buf;
   for (size_t i = 0; i < this->length; i++) {
     // The point of this class is to safely wrap raw memory pointers.

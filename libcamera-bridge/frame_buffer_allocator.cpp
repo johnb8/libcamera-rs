@@ -5,7 +5,8 @@
 BindFrameBufferAllocator make_frame_buffer_allocator(Camera &camera) {
   BindFrameBufferAllocator allocator{
       .inner = std::make_unique<FrameBufferAllocator>(
-          new libcamera::FrameBufferAllocator(camera.into_shared())),
+          std::make_unique<libcamera::FrameBufferAllocator>(
+              camera.into_shared())),
   };
   return allocator;
 }
@@ -30,7 +31,7 @@ void FrameBufferAllocator::free(Stream &stream) {
   }
 }
 
-rust::Vec<BindFrameBuffer> FrameBufferAllocator::buffers(Stream &stream) {
+rust::Vec<BindFrameBuffer> FrameBufferAllocator::buffers(Stream &stream) const {
   VALIDATE_POINTERS()
 
   rust::Vec<BindFrameBuffer> vec;
@@ -44,5 +45,3 @@ rust::Vec<BindFrameBuffer> FrameBufferAllocator::buffers(Stream &stream) {
   }
   return vec;
 }
-
-FrameBufferAllocator::~FrameBufferAllocator() { delete this->inner; }
