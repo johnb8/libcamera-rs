@@ -5,7 +5,7 @@
 #include "libcamera-rs/src/bridge.rs.h"
 
 BindPixelFormat get_default_pixel_format(DefaultPixelFormat default_format) {
-  const libcamera::PixelFormat *fmt;
+  const libcamera::PixelFormat *fmt = nullptr;
   switch (default_format) {
   case DefaultPixelFormat::R8:
     fmt = &libcamera::formats::R8;
@@ -41,7 +41,9 @@ BindPixelFormat get_default_pixel_format(DefaultPixelFormat default_format) {
     fmt = &libcamera::formats::MJPEG;
     break;
   }
-  if (!fmt) {
+  if (fmt == nullptr) {
+    // The thrown error is an int and so is copyable.
+    // NOLINTNEXTLINE(cert-err09-cpp,cert-err61-cpp)
     throw BindErrorCode::EFault;
   }
   BindPixelFormat pixel_format{

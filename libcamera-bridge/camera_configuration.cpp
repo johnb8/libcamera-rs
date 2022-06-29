@@ -12,7 +12,7 @@ BindStreamConfiguration CameraConfiguration::at(unsigned int idx) {
   VALIDATE_POINTERS()
 
   libcamera::StreamConfiguration *str = &this->inner->at(idx);
-  if (!str) {
+  if (str == nullptr) {
     throw(BindErrorCode) ENODEV;
   }
   BindStreamConfiguration conf{

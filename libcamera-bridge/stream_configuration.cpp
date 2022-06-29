@@ -38,6 +38,18 @@ BindSize StreamConfiguration::get_size() {
   return size;
 }
 
+void StreamConfiguration::set_buffer_count(size_t buffer_count) {
+  VALIDATE_POINTERS()
+
+  this->inner->bufferCount = buffer_count;
+}
+
+size_t StreamConfiguration::get_buffer_count() {
+  VALIDATE_POINTERS()
+
+  return this->inner->bufferCount;
+}
+
 rust::String StreamConfiguration::to_string() {
   return this->inner->toString();
 }

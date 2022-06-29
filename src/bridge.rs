@@ -162,26 +162,32 @@ pub mod ffi {
     type CameraManager;
     pub fn make_camera_manager() -> BindCameraManager;
 
-    pub unsafe fn start(self: Pin<&mut CameraManager>);
+    pub unsafe fn start(self: Pin<&mut CameraManager>) -> Result<()>;
     pub unsafe fn stop(self: Pin<&mut CameraManager>);
     pub unsafe fn get_camera_ids(self: Pin<&mut CameraManager>) -> Vec<String>;
-    pub unsafe fn get_camera_by_id(self: Pin<&mut CameraManager>, id: &str) -> BindCamera;
+    pub unsafe fn get_camera_by_id(self: Pin<&mut CameraManager>, id: &str) -> Result<BindCamera>;
 
     type Camera;
-    pub unsafe fn acquire(self: Pin<&mut Camera>);
-    pub unsafe fn release(self: Pin<&mut Camera>);
+    pub unsafe fn acquire(self: Pin<&mut Camera>) -> Result<()>;
+    pub unsafe fn release(self: Pin<&mut Camera>) -> Result<()>;
     pub unsafe fn generate_configuration(
       self: Pin<&mut Camera>,
       roles: &[StreamRole],
-    ) -> BindCameraConfiguration;
-    pub unsafe fn configure(self: Pin<&mut Camera>, conf: Pin<&mut CameraConfiguration>);
-    pub unsafe fn create_request(self: Pin<&mut Camera>) -> BindRequest;
-    pub unsafe fn queue_request(self: Pin<&mut Camera>, req: Pin<&mut Request>);
-    pub unsafe fn start(self: Pin<&mut Camera>);
-    pub unsafe fn stop(self: Pin<&mut Camera>);
+    ) -> Result<BindCameraConfiguration>;
+    pub unsafe fn configure(
+      self: Pin<&mut Camera>,
+      conf: Pin<&mut CameraConfiguration>,
+    ) -> Result<()>;
+    pub unsafe fn create_request(self: Pin<&mut Camera>) -> Result<BindRequest>;
+    pub unsafe fn queue_request(self: Pin<&mut Camera>, req: Pin<&mut Request>) -> Result<()>;
+    pub unsafe fn start(self: Pin<&mut Camera>) -> Result<()>;
+    pub unsafe fn stop(self: Pin<&mut Camera>) -> Result<()>;
 
     type CameraConfiguration;
-    pub unsafe fn at(self: Pin<&mut CameraConfiguration>, idx: u32) -> BindStreamConfiguration;
+    pub unsafe fn at(
+      self: Pin<&mut CameraConfiguration>,
+      idx: u32,
+    ) -> Result<BindStreamConfiguration>;
     pub unsafe fn validate(self: Pin<&mut CameraConfiguration>) -> CameraConfigurationStatus;
 
     type StreamConfiguration;
@@ -193,6 +199,8 @@ pub mod ffi {
     pub unsafe fn get_pixel_format(self: Pin<&mut StreamConfiguration>) -> BindPixelFormat;
     pub unsafe fn set_size(self: Pin<&mut StreamConfiguration>, size: BindSize);
     pub unsafe fn get_size(self: Pin<&mut StreamConfiguration>) -> BindSize;
+    pub unsafe fn set_buffer_count(self: Pin<&mut StreamConfiguration>, buffer_count: usize);
+    pub unsafe fn get_buffer_count(self: Pin<&mut StreamConfiguration>) -> usize;
     pub unsafe fn to_string(self: Pin<&mut StreamConfiguration>) -> String;
 
     type PixelFormat;
@@ -206,8 +214,14 @@ pub mod ffi {
     type FrameBufferAllocator;
     pub fn make_frame_buffer_allocator(camera: Pin<&mut Camera>) -> BindFrameBufferAllocator;
 
-    pub unsafe fn allocate(self: Pin<&mut FrameBufferAllocator>, stream: Pin<&mut Stream>);
-    pub unsafe fn free(self: Pin<&mut FrameBufferAllocator>, stream: Pin<&mut Stream>);
+    pub unsafe fn allocate(
+      self: Pin<&mut FrameBufferAllocator>,
+      stream: Pin<&mut Stream>,
+    ) -> Result<usize>;
+    pub unsafe fn free(
+      self: Pin<&mut FrameBufferAllocator>,
+      stream: Pin<&mut Stream>,
+    ) -> Result<()>;
     pub unsafe fn buffers(
       self: Pin<&mut FrameBufferAllocator>,
       stream: Pin<&mut Stream>,
@@ -222,15 +236,15 @@ pub mod ffi {
     pub unsafe fn get_length(self: Pin<&mut FrameBufferPlane>) -> usize;
 
     /// File descriptor functions
-    pub unsafe fn fd_len(fd: i32) -> usize;
-    pub unsafe fn mmap_plane(fd: i32, length: usize) -> BindMemoryBuffer;
+    pub unsafe fn fd_len(fd: i32) -> Result<usize>;
+    pub unsafe fn mmap_plane(fd: i32, length: usize) -> Result<BindMemoryBuffer>;
 
     type MemoryBuffer;
     pub unsafe fn sub_buffer(
       self: Pin<&mut MemoryBuffer>,
       offset: usize,
       length: usize,
-    ) -> BindMemoryBuffer;
+    ) -> Result<BindMemoryBuffer>;
     pub unsafe fn read_to_vec(self: Pin<&mut MemoryBuffer>) -> Vec<u8>;
 
     type Request;
@@ -238,7 +252,7 @@ pub mod ffi {
       self: Pin<&mut Request>,
       stream: Pin<&mut Stream>,
       buffer: Pin<&mut FrameBuffer>,
-    );
+    ) -> Result<()>;
   }
 }
 

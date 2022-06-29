@@ -6,20 +6,21 @@ use std::collections::HashMap;
 #[test]
 fn it_works() {
   let mut cm = ffi::make_camera_manager();
-  unsafe { cm.get().start() };
+  unsafe { cm.get().start() }.unwrap();
   let camera_ids = unsafe { cm.get().get_camera_ids() };
   println!("Available Cameras: {camera_ids:?}");
-  let mut camera = unsafe { cm.get().get_camera_by_id(&camera_ids[0]) };
+  let mut camera = unsafe { cm.get().get_camera_by_id(&camera_ids[0]) }.unwrap();
 
-  unsafe { camera.get().acquire() };
+  unsafe { camera.get().acquire() }.unwrap();
 
   let mut config = unsafe {
     camera
       .get()
-      .generate_configuration(&[ffi::StreamRole::Viewfinder])
-  };
+      .generate_configuration(&[ffi::StreamRole::StillCapture])
+  }
+  .unwrap();
 
-  let mut stream_config = unsafe { config.get().at(0) };
+  let mut stream_config = unsafe { config.get().at(0) }.unwrap();
 
   unsafe {
     stream_config
@@ -29,7 +30,7 @@ fn it_works() {
       ))
   };
 
-  unsafe { stream_config.get().set_size(ffi::new_size(640, 480)) };
+  unsafe { stream_config.get().set_size(ffi::new_size(1280, 720)) };
 
   let status = unsafe { config.get().validate() };
   if status == ffi::CameraConfigurationStatus::Invalid {
@@ -39,19 +40,21 @@ fn it_works() {
     println!("Camera Configuration Adjusted.");
   }
 
-  unsafe { camera.get().configure(config.get()) };
+  unsafe { camera.get().configure(config.get()) }.unwrap();
 
-  let mut stream_config = unsafe { config.get().at(0) };
+  unsafe { stream_config.get().set_buffer_count(1) };
 
   let mut allocator = unsafe { ffi::make_frame_buffer_allocator(camera.get()) };
 
   let mut stream = unsafe { stream_config.get().stream() };
 
-  unsafe { allocator.get().allocate(stream.get()) };
+  let buffer_count = unsafe { allocator.get().allocate(stream.get()) }.unwrap();
+  println!("Buffers: {buffer_count}");
+
   let mut requests = Vec::new();
   let mut planes = Vec::new();
   for mut buffer in unsafe { allocator.get().buffers(stream.get()) } {
-    let mut request = unsafe { camera.get().create_request() };
+    let mut request = unsafe { camera.get().create_request() }.unwrap();
 
     let mut mapped_buffers: HashMap<i32, (Option<ffi::BindMemoryBuffer>, usize, usize)> =
       HashMap::new();
@@ -59,7 +62,7 @@ fn it_works() {
       let fd = unsafe { plane.get().get_fd() };
       let length = mapped_buffers
         .entry(fd)
-        .or_insert((None, 0, unsafe { ffi::fd_len(fd) }))
+        .or_insert((None, 0, unsafe { ffi::fd_len(fd) }.unwrap()))
         .2;
       if unsafe { plane.get().get_offset() } + unsafe { plane.get().get_length() } > length {
         panic!(
@@ -76,26 +79,29 @@ fn it_works() {
       let fd = unsafe { plane.get().get_fd() };
       let mapped_buffer = mapped_buffers.get_mut(&fd).unwrap();
       if mapped_buffer.0.is_none() {
-        mapped_buffer.0 = Some(unsafe { ffi::mmap_plane(fd, mapped_buffer.1) });
+        mapped_buffer.0 = Some(unsafe { ffi::mmap_plane(fd, mapped_buffer.1) }.unwrap());
       }
-      planes.push(unsafe {
-        mapped_buffer
-          .0
-          .as_mut()
-          .unwrap()
-          .get()
-          .sub_buffer(plane.get().get_offset(), plane.get().get_length())
-      });
+      planes.push(
+        unsafe {
+          mapped_buffer
+            .0
+            .as_mut()
+            .unwrap()
+            .get()
+            .sub_buffer(plane.get().get_offset(), plane.get().get_length())
+        }
+        .unwrap(),
+      );
     }
 
-    unsafe { request.get().add_buffer(stream.get(), buffer.get()) };
+    unsafe { request.get().add_buffer(stream.get(), buffer.get()) }.unwrap();
     requests.push(request);
   }
 
-  unsafe { camera.get().start() };
+  unsafe { camera.get().start() }.unwrap();
 
   for request in &mut requests {
-    unsafe { camera.get().queue_request(request.get()) };
+    unsafe { camera.get().queue_request(request.get()) }.unwrap();
   }
 
   std::thread::sleep(std::time::Duration::from_millis(1000));
@@ -107,6 +113,6 @@ fn it_works() {
     .unwrap();
   }
 
-  unsafe { camera.get().stop() };
-  unsafe { camera.get().release() };
+  unsafe { camera.get().stop() }.unwrap();
+  unsafe { camera.get().release() }.unwrap();
 }

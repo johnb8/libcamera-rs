@@ -10,13 +10,15 @@ BindFrameBufferAllocator make_frame_buffer_allocator(Camera &camera) {
   return allocator;
 }
 
-void FrameBufferAllocator::allocate(Stream &stream) {
+size_t FrameBufferAllocator::allocate(Stream &stream) {
   VALIDATE_POINTERS()
 
   int ret = this->inner->allocate(stream.into_ptr());
   if (ret < 0) {
     throw(BindErrorCode)(-ret);
   }
+
+  return ret;
 }
 
 void FrameBufferAllocator::free(Stream &stream) {
@@ -43,8 +45,4 @@ rust::Vec<BindFrameBuffer> FrameBufferAllocator::buffers(Stream &stream) {
   return vec;
 }
 
-FrameBufferAllocator::~FrameBufferAllocator() {
-  if (this->inner) {
-    delete this->inner;
-  }
-}
+FrameBufferAllocator::~FrameBufferAllocator() { delete this->inner; }

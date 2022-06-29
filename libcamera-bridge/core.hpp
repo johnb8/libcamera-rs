@@ -99,6 +99,8 @@ public:
   BindPixelFormat get_pixel_format();
   void set_size(BindSize size);
   BindSize get_size();
+  void set_buffer_count(size_t buffer_count);
+  size_t get_buffer_count();
   rust::String to_string();
 };
 
@@ -125,8 +127,8 @@ public:
   Size(libcamera::Size inner_) : inner(inner_) {}
   libcamera::Size into_inner();
 
-  unsigned int get_width();
-  unsigned int get_height();
+  unsigned int get_width() const;
+  unsigned int get_height() const;
   void set_width(unsigned int width);
   void set_height(unsigned int height);
 
@@ -153,7 +155,7 @@ public:
       : inner(inner_) {}
   ~FrameBufferAllocator();
 
-  void allocate(Stream &stream);
+  size_t allocate(Stream &stream);
   void free(Stream &stream);
   rust::Vec<BindFrameBuffer> buffers(Stream &stream);
 };
