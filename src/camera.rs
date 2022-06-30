@@ -1,9 +1,9 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::marker::PhantomData;
 
 use crate::bridge::{ffi, GetInner};
 use crate::config::CameraConfig;
-
 use crate::{LibcameraError, Result};
 
 pub use ffi::StreamRole;
@@ -42,6 +42,8 @@ impl CameraManager {
       config: None,
       inner: cam,
       allocator,
+      streams: Vec::new(),
+      started: false,
     })
   }
 }
@@ -52,6 +54,11 @@ impl Drop for CameraManager {
   }
 }
 
+struct CameraStream {
+  next_buffer: usize,
+  buffers: Vec<(ffi::BindRequest, Vec<ffi::BindMemoryBuffer>)>,
+}
+
 /// Represents a camera
 pub struct Camera<'a> {
   _camera_manager: PhantomData<&'a CameraManager>,
@@ -59,6 +66,8 @@ pub struct Camera<'a> {
   config: Option<CameraConfig>,
   inner: ffi::BindCamera,
   allocator: ffi::BindFrameBufferAllocator,
+  streams: Vec<CameraStream>,
+  started: bool,
 }
 
 impl fmt::Debug for Camera<'_> {
@@ -97,10 +106,102 @@ impl Camera<'_> {
   pub fn get_config(&self) -> Option<&CameraConfig> {
     self.config.as_ref()
   }
+  /// Start the camera so that it's ready to capture images.
+  ///
+  /// This should only be called once, future calls will do nothing and the camera's streams cannot be configured while it is started.
+  /// # Returns
+  /// On success returns whether the stream was newly started (i.e. false means the stream was already running).
+  /// This will fail if the camera has not been properly configured, or if libcamera decides to not work.
+  /// # Panics
+  /// This will panic if the buffer sizes produced by libcamera extend past the end of the actual camera memory buffer.
+  pub fn start_stream(&mut self) -> Result<bool> {
+    if self.started {
+      // Do nothing if the camera was already started.
+      return Ok(false);
+    }
+    self.started = true;
+    // Ok so:
+    // The camera contains streams, each stream has multiple buffers and each buffer has multiple planes.
+    // Each request to the camera operates on one buffer on one stream and fills the buffer with data from that stream.
+    // To start the camera we must allocate the buffers for all the streams and save them somewhere for future reading.
+    // We also must create a request for each buffer that we can re-use later every time we need an image.
+    // Technically requests can have multiple buffers, but I don't think know why this would be the case and I don't think it's necessary.
+
+    // For each stream...
+    for stream_config in self
+      .config
+      .as_ref()
+      .ok_or(LibcameraError::InvalidConfig)?
+      .streams()
+    {
+      let mut stream = unsafe { stream_config.get_inner().get().stream() };
+      // Allocate buffers
+      let _buffer_count = unsafe { self.allocator.get_mut().allocate(stream.get_mut()) };
+      let mut camera_stream = CameraStream {
+        next_buffer: 0,
+        buffers: Vec::new(),
+      };
+      // Create requests and map memory
+      for mut buffer in unsafe { self.allocator.get().buffers(stream.get_mut()) } {
+        let mut request = unsafe { self.inner.get_mut().create_request() }?;
+        let mut planes = Vec::new();
+        let mut mapped_buffers: HashMap<i32, (Option<ffi::BindMemoryBuffer>, usize, usize)> =
+          HashMap::new();
+        for plane in unsafe { buffer.get().planes() } {
+          let fd = unsafe { plane.get().get_fd() };
+          let mapped_buffer = mapped_buffers
+            .entry(fd)
+            .or_insert((None, 0, unsafe { ffi::fd_len(fd) }?));
+          let length = mapped_buffer.2;
+          let plane_offset = unsafe { plane.get().get_offset() };
+          let plane_length = unsafe { plane.get().get_length() };
+          if plane_offset + plane_length > length {
+            panic!(
+							"Plane is out of buffer: buffer length = {length}, plane offset = {}, plane length = {}",
+							unsafe { plane.get().get_offset() },
+							unsafe { plane.get().get_length() },
+						);
+          }
+          mapped_buffer.1 = mapped_buffer.1.max(plane_offset + plane_length);
+        }
+        for plane in unsafe { buffer.get().planes() } {
+          let fd = unsafe { plane.get().get_fd() };
+          let mapped_buffer = mapped_buffers.get_mut(&fd).unwrap();
+          if mapped_buffer.0.is_none() {
+            mapped_buffer.0 = Some(unsafe { ffi::mmap_plane(fd, mapped_buffer.1) }?);
+          }
+          planes.push(unsafe {
+            mapped_buffer
+              .0
+              .as_mut()
+              .unwrap()
+              .get_mut()
+              .sub_buffer(plane.get().get_offset(), plane.get().get_length())
+          }?);
+        }
+
+        unsafe { request.get_mut().add_buffer(stream.get(), buffer.get_mut()) }?;
+        camera_stream.buffers.push((request, planes));
+      }
+      self.streams.push(camera_stream);
+    }
+    unsafe { self.inner.get_mut().start() }?;
+    Ok(true)
+  }
+  /// Start the process to capture an image from the camera.
+  pub fn capture_next_picture(&mut self, stream: usize) -> Result<()> {
+    let mut stream = &mut self.streams[stream];
+    let mut buffer = &mut stream.buffers[stream.next_buffer];
+    unsafe { self.inner.get_mut().queue_request(buffer.0.get_mut()) }?;
+    stream.next_buffer += 1;
+    Ok(())
+  }
 }
 
 impl Drop for Camera<'_> {
   fn drop(&mut self) {
+    self.streams = Vec::new();
+    unsafe { self.inner.get_mut().stop() }.unwrap();
     unsafe { self.inner.get_mut().release() }.unwrap();
   }
 }

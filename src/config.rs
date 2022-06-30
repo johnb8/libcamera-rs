@@ -51,6 +51,9 @@ impl StreamConfig {
   pub(crate) fn wrap_inner(inner: ffi::BindStreamConfiguration) -> Self {
     StreamConfig { inner }
   }
+  pub(crate) fn get_inner(&self) -> &ffi::BindStreamConfiguration {
+    &self.inner
+  }
   /// Set the pixel format for this stream to a [DefaultPixelFormat]
   pub fn set_default_pixel_format(&mut self, fmt: DefaultPixelFormat) {
     unsafe {

@@ -28,11 +28,11 @@ fn test_unsafe_camera() {
     stream_config
       .get_mut()
       .set_pixel_format(ffi::get_default_pixel_format(
-        ffi::DefaultPixelFormat::Yuv422,
+        ffi::DefaultPixelFormat::Mjpeg,
       ))
   };
 
-  unsafe { stream_config.get_mut().set_size(ffi::new_size(640, 480)) };
+  unsafe { stream_config.get_mut().set_size(ffi::new_size(1280, 720)) };
 
   let status = unsafe { config.get_mut().validate() };
   if status == ffi::CameraConfigurationStatus::Invalid {
