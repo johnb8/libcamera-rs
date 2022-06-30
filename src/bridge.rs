@@ -168,6 +168,20 @@ pub mod ffi {
     inner: UniquePtr<Request>,
   }
 
+  #[repr(i32)]
+  #[derive(Debug)]
+  enum CameraMessageType {
+    RequestComplete,
+    BufferComplete,
+  }
+
+  #[derive(Debug)]
+  struct CameraMessage {
+    message_type: CameraMessageType,
+    request_cookie: u64,
+    buffer_cookie: u32,
+  }
+
   unsafe extern "C++" {
     include!("libcamera-rs/libcamera-bridge/core.hpp");
 
@@ -194,10 +208,12 @@ pub mod ffi {
       self: Pin<&mut Camera>,
       conf: Pin<&mut CameraConfiguration>,
     ) -> Result<()>;
-    pub unsafe fn create_request(self: Pin<&mut Camera>) -> Result<BindRequest>;
+    pub unsafe fn create_request(self: Pin<&mut Camera>, cookie: u64) -> Result<BindRequest>;
     pub unsafe fn queue_request(self: Pin<&mut Camera>, req: Pin<&mut Request>) -> Result<()>;
     pub unsafe fn start(self: Pin<&mut Camera>) -> Result<()>;
     pub unsafe fn stop(self: Pin<&mut Camera>) -> Result<()>;
+
+    pub unsafe fn poll_events(self: Pin<&mut Camera>) -> Vec<CameraMessage>;
 
     type CameraConfiguration;
     pub unsafe fn size(self: &CameraConfiguration) -> usize;

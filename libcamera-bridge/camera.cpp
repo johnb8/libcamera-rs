@@ -56,10 +56,10 @@ void Camera::configure(CameraConfiguration &conf) {
   }
 }
 
-BindRequest Camera::create_request() {
+BindRequest Camera::create_request(unsigned long cookie) {
   VALIDATE_POINTERS()
 
-  std::unique_ptr<libcamera::Request> req = this->inner->createRequest();
+  std::unique_ptr<libcamera::Request> req = this->inner->createRequest(cookie);
   if (!req) {
     throw(BindErrorCode) ENODEV;
   }
@@ -95,4 +95,27 @@ void Camera::stop() {
   if (ret < 0) {
     throw(BindErrorCode)(-ret);
   }
+}
+
+Camera::Camera(std::shared_ptr<libcamera::Camera> inner_)
+    : inner{std::move(inner_)} {
+  this->inner->bufferCompleted.connect(
+      this, [&](libcamera::Request *req, libcamera::FrameBuffer *fb) {
+        this->message_mutex.lock();
+        this->message_queue.push(CameraMessage{
+            .message_type = CameraMessageType::BufferComplete,
+            .request_cookie = req->cookie(),
+            .buffer_cookie = fb->cookie(),
+        });
+        this->message_mutex.unlock();
+      });
+}
+
+rust::Vec<CameraMessage> Camera::poll_events() {
+  rust::Vec<CameraMessage> messages;
+  while (!this->message_queue.empty()) {
+    messages.push_back(this->message_queue.front());
+    message_queue.pop();
+  }
+  return messages;
 }

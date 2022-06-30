@@ -143,7 +143,7 @@ impl Camera<'_> {
       };
       // Create requests and map memory
       for mut buffer in unsafe { self.allocator.get().buffers(stream.get_mut()) } {
-        let mut request = unsafe { self.inner.get_mut().create_request() }?;
+        let mut request = unsafe { self.inner.get_mut().create_request(420) }?;
         let mut planes = Vec::new();
         let mut mapped_buffers: HashMap<i32, (Option<ffi::BindMemoryBuffer>, usize, usize)> =
           HashMap::new();

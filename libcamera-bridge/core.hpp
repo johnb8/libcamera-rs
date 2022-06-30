@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include <mutex>
+#include <queue>
+
 #include <libcamera/camera.h>
 #include <libcamera/camera_manager.h>
 #include <libcamera/controls.h>
@@ -33,6 +36,9 @@ struct Size;
 struct Request;
 enum class DefaultPixelFormat;
 
+enum class CameraMessageType;
+struct CameraMessage;
+
 using CameraConfigurationStatus = libcamera::CameraConfiguration::Status;
 
 // Make sure this->inner is non-null
@@ -61,9 +67,11 @@ struct Camera {
 private:
   std::shared_ptr<libcamera::Camera> inner;
 
+  std::mutex message_mutex;
+  std::queue<CameraMessage> message_queue;
+
 public:
-  explicit Camera(std::shared_ptr<libcamera::Camera> inner_)
-      : inner{std::move(inner_)} {}
+  explicit Camera(std::shared_ptr<libcamera::Camera> inner_);
   std::shared_ptr<libcamera::Camera> into_shared();
 
   void acquire();
@@ -71,10 +79,12 @@ public:
   BindCameraConfiguration generate_configuration(
       rust::Slice<const libcamera::StreamRole> /*roles*/);
   void configure(CameraConfiguration &conf);
-  BindRequest create_request();
+  BindRequest create_request(unsigned long cookie);
   void queue_request(Request &req);
   void start();
   void stop();
+
+  rust::Vec<CameraMessage> poll_events();
 };
 
 struct CameraConfiguration {

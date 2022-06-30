@@ -54,7 +54,7 @@ fn test_unsafe_camera() {
   let mut requests = Vec::new();
   let mut planes = Vec::new();
   for mut buffer in unsafe { allocator.get().buffers(stream.get_mut()) } {
-    let mut request = unsafe { camera.get_mut().create_request() }.unwrap();
+    let mut request = unsafe { camera.get_mut().create_request(69) }.unwrap();
 
     let mut mapped_buffers: HashMap<i32, (Option<ffi::BindMemoryBuffer>, usize, usize)> =
       HashMap::new();
@@ -105,6 +105,8 @@ fn test_unsafe_camera() {
   }
 
   std::thread::sleep(std::time::Duration::from_millis(1000));
+
+  println!("Events: {:?}", unsafe { camera.get_mut().poll_events() });
 
   for (i, plane) in planes.iter_mut().enumerate() {
     std::fs::write(&format!("plane_{i}.jpeg"), unsafe {
