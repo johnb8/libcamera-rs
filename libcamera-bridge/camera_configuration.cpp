@@ -8,6 +8,12 @@ libcamera::CameraConfiguration *CameraConfiguration::into_ptr() {
   return this->inner.get();
 }
 
+size_t CameraConfiguration::size() const {
+  VALIDATE_POINTERS()
+
+  return this->inner->size();
+}
+
 BindStreamConfiguration CameraConfiguration::at(unsigned int idx) {
   VALIDATE_POINTERS()
 

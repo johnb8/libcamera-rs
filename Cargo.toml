@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 cxx = "1.0"
+thiserror = "1"
 
 [build-dependencies]
 cxx-build = "1.0"

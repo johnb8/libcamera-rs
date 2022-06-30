@@ -87,6 +87,7 @@ public:
       : inner{std::move(inner_)} {}
   libcamera::CameraConfiguration *into_ptr();
 
+  size_t size() const;
   BindStreamConfiguration at(unsigned int idx);
   CameraConfigurationStatus validate();
 };

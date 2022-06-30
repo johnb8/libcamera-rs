@@ -4,7 +4,7 @@ use crate::bridge::GetInner;
 use std::collections::HashMap;
 
 #[test]
-fn it_works() {
+fn test_unsafe_camera() {
   let mut cm = ffi::make_camera_manager();
   unsafe { cm.get_mut().start() }.unwrap();
   let camera_ids = unsafe { cm.get().get_camera_ids() };
@@ -12,6 +12,8 @@ fn it_works() {
   let mut camera = unsafe { cm.get_mut().get_camera_by_id(&camera_ids[0]) }.unwrap();
 
   unsafe { camera.get_mut().acquire() }.unwrap();
+
+  let mut allocator = unsafe { ffi::make_frame_buffer_allocator(camera.get_mut()) };
 
   let mut config = unsafe {
     camera
@@ -30,7 +32,7 @@ fn it_works() {
       ))
   };
 
-  unsafe { stream_config.get_mut().set_size(ffi::new_size(1280, 720)) };
+  unsafe { stream_config.get_mut().set_size(ffi::new_size(640, 480)) };
 
   let status = unsafe { config.get_mut().validate() };
   if status == ffi::CameraConfigurationStatus::Invalid {
@@ -40,11 +42,9 @@ fn it_works() {
     println!("Camera Configuration Adjusted.");
   }
 
-  unsafe { camera.get_mut().configure(config.get_mut()) }.unwrap();
-
   unsafe { stream_config.get_mut().set_buffer_count(1) };
 
-  let mut allocator = unsafe { ffi::make_frame_buffer_allocator(camera.get_mut()) };
+  unsafe { camera.get_mut().configure(config.get_mut()) }.unwrap();
 
   let mut stream = unsafe { stream_config.get().stream() };
 

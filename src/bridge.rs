@@ -7,13 +7,17 @@ mod test;
 
 #[cxx::bridge]
 pub mod ffi {
+  /// Represents a "role" that a camera stream can be optimized for.
   #[namespace = "libcamera"]
   #[repr(i32)]
   #[derive(Debug)]
   enum StreamRole {
     Raw,
+    /// Capturing still images
     StillCapture,
+    /// Recording a video
     VideoRecording,
+    /// Displaying a viewfinder
     Viewfinder,
   }
 
@@ -26,19 +30,31 @@ pub mod ffi {
     Invalid,
   }
 
+  /// Represents common pixel formats.
   #[repr(i32)]
   #[derive(Debug)]
   enum DefaultPixelFormat {
+    /// 8bpp, single channel image
     R8,
+    /// 24bpp, three channel image, order red, green, blue
     Rgb888,
+    /// 16bpp, three channel image, order red, green, blue
     Rgb565,
+    /// 24bpp, three channel image, order blue, green, red
     Bgr888,
+    /// 16bpp, three channel image, YUV (4:2:2) encoding, order Y' U Y' V
     Yuyv,
+    /// 16bpp, three channel image, YUV (4:2:2) encoding, order Y' V Y' U
     Yvyu,
+    /// 16bpp*, chroma subsampling (U, V half width + height), three channel image, YUV (4:2:0) encoing, order Y', U, V
     Yuv420,
+    /// 16bpp*, chroma subsampling (U, V half width), three channel image, YUV (4:2:2) encoing, order Y', U, V
     Yuv422,
+    /// 16bpp*, chroma subsampling (U, V half width), three channel image, YUV (4:2:2) encoing, order Y', V, U
     Yvu422,
+    /// 24bpp, three channel image, YUV (4:4:4) encoing, order Y', U, V
     Yuv444,
+    /// MJPEG (motion JPEG) encoding, effectively one JPEG image per frame
     Mjpeg,
   }
 
@@ -184,6 +200,7 @@ pub mod ffi {
     pub unsafe fn stop(self: Pin<&mut Camera>) -> Result<()>;
 
     type CameraConfiguration;
+    pub unsafe fn size(self: &CameraConfiguration) -> usize;
     pub unsafe fn at(
       self: Pin<&mut CameraConfiguration>,
       idx: u32,
@@ -266,7 +283,7 @@ pub mod ffi {
 
 /// # Safety
 /// The inner pointer to the libcamera object must be valid.
-unsafe trait GetInner {
+pub unsafe trait GetInner {
   type Inner;
   unsafe fn get(&self) -> &Self::Inner;
   unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner>;
