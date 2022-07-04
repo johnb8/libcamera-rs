@@ -72,6 +72,7 @@ private:
 
 public:
   explicit Camera(std::shared_ptr<libcamera::Camera> inner_);
+  ~Camera();
   std::shared_ptr<libcamera::Camera> into_shared();
 
   void acquire();
@@ -184,7 +185,10 @@ private:
 public:
   explicit FrameBuffer(libcamera::FrameBuffer *inner_) : inner(inner_) {}
   libcamera::FrameBuffer *into_ptr();
+
   [[nodiscard]] rust::Vec<BindFrameBufferPlane> planes() const;
+  void set_cookie(unsigned int cookie);
+  unsigned int get_cookie() const;
 };
 
 size_t fd_len(int fd);

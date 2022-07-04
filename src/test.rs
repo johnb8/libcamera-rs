@@ -17,5 +17,5 @@ fn test_camera() {
   cam.capture_next_picture(0).unwrap();
   println!("Capturing single frame...");
   std::thread::sleep(std::time::Duration::from_millis(100));
-  //println!("Saving planes...");
+  println!("Saving planes...");
 }

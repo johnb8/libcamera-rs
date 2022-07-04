@@ -56,6 +56,8 @@ fn test_unsafe_camera() {
   for mut buffer in unsafe { allocator.get().buffers(stream.get_mut()) } {
     let mut request = unsafe { camera.get_mut().create_request(69) }.unwrap();
 
+    unsafe { buffer.get_mut().set_cookie(420) };
+
     let mut mapped_buffers: HashMap<i32, (Option<ffi::BindMemoryBuffer>, usize, usize)> =
       HashMap::new();
     for plane in unsafe { buffer.get().planes() } {

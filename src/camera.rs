@@ -191,7 +191,7 @@ impl Camera<'_> {
   /// Start the process to capture an image from the camera.
   pub fn capture_next_picture(&mut self, stream: usize) -> Result<()> {
     let mut stream = &mut self.streams[stream];
-    let mut buffer = &mut stream.buffers[stream.next_buffer];
+    let buffer = &mut stream.buffers[stream.next_buffer];
     unsafe { self.inner.get_mut().queue_request(buffer.0.get_mut()) }?;
     stream.next_buffer += 1;
     Ok(())
