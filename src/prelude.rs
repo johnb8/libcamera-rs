@@ -1,2 +1,2 @@
-pub use crate::camera::{CameraManager, StreamRole};
+pub use crate::camera::{CameraEvent, CameraManager, StreamRole};
 pub use crate::config::DefaultPixelFormat;

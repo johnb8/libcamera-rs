@@ -54,9 +54,18 @@ impl Drop for CameraManager {
   }
 }
 
+struct CameraBuffer {
+  buffer_id: u32,
+  buffer: ffi::BindFrameBuffer,
+  request: Option<ffi::BindRequest>,
+  planes: Vec<ffi::BindMemoryBuffer>,
+}
+
 struct CameraStream {
+  stream_id: u32,
+  stream: ffi::BindStream,
   next_buffer: usize,
-  buffers: Vec<(ffi::BindRequest, Vec<ffi::BindMemoryBuffer>)>,
+  buffers: Vec<CameraBuffer>,
 }
 
 /// Represents a camera
@@ -137,13 +146,17 @@ impl Camera<'_> {
       let mut stream = unsafe { stream_config.get_inner().get().stream() };
       // Allocate buffers
       let _buffer_count = unsafe { self.allocator.get_mut().allocate(stream.get_mut()) };
+      let stream_id = self.streams.len() as u32;
       let mut camera_stream = CameraStream {
+        stream_id,
+        stream,
         next_buffer: 0,
         buffers: Vec::new(),
       };
-      // Create requests and map memory
-      for mut buffer in unsafe { self.allocator.get().buffers(stream.get_mut()) } {
-        let mut request = unsafe { self.inner.get_mut().create_request(420) }?;
+      // Map memory for buffers
+      for mut buffer in unsafe { self.allocator.get().buffers(camera_stream.stream.get_mut()) } {
+        let buffer_id = camera_stream.buffers.len() as u32;
+        unsafe { buffer.get_mut().set_cookie(buffer_id) };
         let mut planes = Vec::new();
         let mut mapped_buffers: HashMap<i32, (Option<ffi::BindMemoryBuffer>, usize, usize)> =
           HashMap::new();
@@ -180,8 +193,12 @@ impl Camera<'_> {
           }?);
         }
 
-        unsafe { request.get_mut().add_buffer(stream.get(), buffer.get_mut()) }?;
-        camera_stream.buffers.push((request, planes));
+        camera_stream.buffers.push(CameraBuffer {
+          buffer_id,
+          request: None,
+          buffer,
+          planes,
+        });
       }
       self.streams.push(camera_stream);
     }
@@ -192,9 +209,52 @@ impl Camera<'_> {
   pub fn capture_next_picture(&mut self, stream: usize) -> Result<()> {
     let mut stream = &mut self.streams[stream];
     let buffer = &mut stream.buffers[stream.next_buffer];
-    unsafe { self.inner.get_mut().queue_request(buffer.0.get_mut()) }?;
-    stream.next_buffer += 1;
-    Ok(())
+    if buffer.request.is_none() {
+      let request_id = buffer.buffer_id as u64 | ((stream.stream_id as u64) << 32);
+      println!("Queuing request with id {}", request_id);
+      let mut req = unsafe { self.inner.get_mut().create_request(request_id) }?;
+      unsafe {
+        req
+          .get_mut()
+          .add_buffer(stream.stream.get(), buffer.buffer.get_mut())
+      }?;
+      unsafe { self.inner.get_mut().queue_request(req.get_mut()) }?;
+      buffer.request = Some(req);
+      stream.next_buffer += 1;
+      stream.next_buffer %= stream.buffers.len();
+      Ok(())
+    } else {
+      Err(LibcameraError::NoBufferReady)
+    }
+  }
+  pub fn poll_events(&mut self) -> Result<Vec<CameraEvent>> {
+    let events = unsafe { self.inner.get_mut().poll_events() };
+    Ok(
+      events
+        .into_iter()
+        .flat_map(|event| match event.message_type {
+          ffi::CameraMessageType::RequestComplete => {
+            println!("Ev: {event:?}");
+            let stream_id = ((event.request_cookie >> 32) & 0xFFFFFFFF) as usize;
+            let buffer_id = (event.request_cookie & 0xFFFFFFFF) as usize;
+            println!(
+              "Request completed on stream {}, buffer {}.",
+              stream_id, buffer_id
+            );
+            let buffer = &mut self.streams[stream_id].buffers[buffer_id];
+            buffer.request = None;
+            Some(CameraEvent::RequestComplete(
+              buffer
+                .planes
+                .iter()
+                .map(|plane| unsafe { plane.get().read_to_vec() })
+                .collect(),
+            ))
+          }
+          _ => None,
+        })
+        .collect(),
+    )
   }
 }
 
@@ -206,8 +266,15 @@ impl Drop for Camera<'_> {
   }
 }
 
+/// Represents an event from the camera
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CameraEvent {
+  /// Triggered when a capture request has completed, containing a vec of the resulting image planes.
+  RequestComplete(Vec<Vec<u8>>),
+}
+
 /// Represents the result of applying a configuration to a camera.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigStatus {
   /// The configuration was applied to the camera unchanged
   Unchanged,

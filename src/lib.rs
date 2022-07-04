@@ -17,6 +17,8 @@ pub enum LibcameraError {
   IntConversion(#[from] std::num::TryFromIntError),
   #[error("Configuration Invalid or Missing")]
   InvalidConfig,
+  #[error("No buffer ready for capture (all buffers in use, capture pictures slower!)")]
+  NoBufferReady,
 }
 
 type Result<T> = std::result::Result<T, LibcameraError>;

@@ -5,4 +5,4 @@
 /target
 Cargo.lock
 
-plane_*.jpeg
+plane_*
