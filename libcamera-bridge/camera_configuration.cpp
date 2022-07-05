@@ -19,7 +19,7 @@ BindStreamConfiguration CameraConfiguration::at(unsigned int idx) {
 
   libcamera::StreamConfiguration *str = &this->inner->at(idx);
   if (str == nullptr) {
-    throw(BindErrorCode) ENODEV;
+    throw std::runtime_error("No stream configuration with specified id.");
   }
   BindStreamConfiguration conf{
       .inner = std::make_unique<StreamConfiguration>(str),

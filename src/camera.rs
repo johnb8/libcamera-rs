@@ -22,7 +22,7 @@ impl fmt::Debug for CameraManager {
 impl CameraManager {
   /// Constructs a new camera manager
   pub fn new() -> Result<CameraManager> {
-    let mut cm = ffi::make_camera_manager();
+    let mut cm = unsafe { ffi::make_camera_manager() };
     // The primary safety concern for the CM is that it must be started once before calling all functions.
     unsafe { cm.get_mut().start() }?;
     Ok(CameraManager { inner: cm })

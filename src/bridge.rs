@@ -167,6 +167,12 @@ pub mod ffi {
   struct BindRequest {
     inner: UniquePtr<Request>,
   }
+  struct BindControlId {
+    inner: UniquePtr<ControlId>,
+  }
+  struct BindControlValue {
+    inner: UniquePtr<ControlValue>,
+  }
 
   #[repr(i32)]
   #[derive(Debug)]
@@ -182,7 +188,21 @@ pub mod ffi {
     buffer_cookie: u32,
   }
 
-  unsafe extern "C++" {
+  #[repr(i32)]
+  #[derive(Debug)]
+  enum CameraControlType {
+    None = 0,
+    Bool = 1,
+    Byte = 2,
+    Integer32 = 3,
+    Integer64 = 4,
+    Float = 5,
+    String = 6,
+    Rectangle = 7,
+    Size = 8,
+  }
+
+  extern "C++" {
     include!("libcamera-rs/libcamera-bridge/core.hpp");
 
     #[namespace = "libcamera"]
@@ -190,7 +210,7 @@ pub mod ffi {
     type CameraConfigurationStatus;
 
     type CameraManager;
-    pub fn make_camera_manager() -> BindCameraManager;
+    pub unsafe fn make_camera_manager() -> BindCameraManager;
 
     pub unsafe fn start(self: Pin<&mut CameraManager>) -> Result<()>;
     pub unsafe fn stop(self: Pin<&mut CameraManager>);
@@ -212,7 +232,7 @@ pub mod ffi {
     pub unsafe fn queue_request(self: Pin<&mut Camera>, req: Pin<&mut Request>) -> Result<()>;
     pub unsafe fn start(self: Pin<&mut Camera>) -> Result<()>;
     pub unsafe fn stop(self: Pin<&mut Camera>) -> Result<()>;
-
+    pub unsafe fn get_controls(self: &Camera) -> Vec<BindControlId>;
     pub unsafe fn poll_events(self: Pin<&mut Camera>) -> Vec<CameraMessage>;
 
     type CameraConfiguration;
@@ -234,24 +254,25 @@ pub mod ffi {
     pub unsafe fn get_size(self: &StreamConfiguration) -> BindSize;
     pub unsafe fn set_buffer_count(self: Pin<&mut StreamConfiguration>, buffer_count: usize);
     pub unsafe fn get_buffer_count(self: &StreamConfiguration) -> usize;
-    pub fn raw_to_string(self: &StreamConfiguration) -> String;
+    pub unsafe fn raw_to_string(self: &StreamConfiguration) -> String;
 
     type PixelFormat;
-    pub fn get_default_pixel_format(default_format: DefaultPixelFormat) -> BindPixelFormat;
-    pub fn raw_to_string(self: &PixelFormat) -> String;
+    pub unsafe fn get_default_pixel_format(default_format: DefaultPixelFormat) -> BindPixelFormat;
+    pub unsafe fn raw_to_string(self: &PixelFormat) -> String;
 
     type Size;
-    pub fn new_size(width: u32, height: u32) -> BindSize;
-    pub fn set_width(self: Pin<&mut Size>, width: u32);
-    pub fn get_width(self: &Size) -> u32;
-    pub fn set_height(self: Pin<&mut Size>, height: u32);
-    pub fn get_height(self: &Size) -> u32;
-    pub fn raw_to_string(self: &Size) -> String;
+    pub unsafe fn new_size(width: u32, height: u32) -> BindSize;
+    pub unsafe fn set_width(self: Pin<&mut Size>, width: u32);
+    pub unsafe fn get_width(self: &Size) -> u32;
+    pub unsafe fn set_height(self: Pin<&mut Size>, height: u32);
+    pub unsafe fn get_height(self: &Size) -> u32;
+    pub unsafe fn raw_to_string(self: &Size) -> String;
 
     type Stream;
 
     type FrameBufferAllocator;
-    pub fn make_frame_buffer_allocator(camera: Pin<&mut Camera>) -> BindFrameBufferAllocator;
+    pub unsafe fn make_frame_buffer_allocator(camera: Pin<&mut Camera>)
+      -> BindFrameBufferAllocator;
 
     pub unsafe fn allocate(
       self: Pin<&mut FrameBufferAllocator>,
@@ -294,8 +315,26 @@ pub mod ffi {
       stream: &Stream,
       buffer: Pin<&mut FrameBuffer>,
     ) -> Result<()>;
+    pub unsafe fn get_control(self: &Request, id: u32) -> Result<BindControlValue>;
+    pub unsafe fn set_control(self: Pin<&mut Request>, id: u32, value: &ControlValue);
+    pub unsafe fn raw_to_string(self: &Request) -> String;
 
-    pub fn raw_to_string(self: &Request) -> String;
+    type ControlId;
+
+    pub unsafe fn get_name(self: &ControlId) -> String;
+    pub unsafe fn get_id(self: &ControlId) -> u32;
+    pub unsafe fn get_type(self: &ControlId) -> CameraControlType;
+
+    type ControlValue;
+
+    pub unsafe fn new_control_value_bool(value: bool) -> BindControlValue;
+    pub unsafe fn new_control_value_byte(value: u8) -> BindControlValue;
+    pub unsafe fn new_control_value_i32(value: i32) -> BindControlValue;
+    pub unsafe fn new_control_value_i64(value: i64) -> BindControlValue;
+    pub unsafe fn new_control_value_f32(value: f32) -> BindControlValue;
+    pub unsafe fn new_control_value_string(value: String) -> BindControlValue;
+
+    pub unsafe fn raw_to_string(self: &ControlValue) -> String;
   }
 }
 
@@ -419,6 +458,26 @@ unsafe impl GetInner for ffi::BindMemoryBuffer {
 
 unsafe impl GetInner for ffi::BindRequest {
   type Inner = ffi::Request;
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
+
+unsafe impl GetInner for ffi::BindControlId {
+  type Inner = ffi::ControlId;
+  unsafe fn get(&self) -> &Self::Inner {
+    &self.inner
+  }
+  unsafe fn get_mut(&mut self) -> Pin<&mut Self::Inner> {
+    self.inner.pin_mut()
+  }
+}
+
+unsafe impl GetInner for ffi::BindControlValue {
+  type Inner = ffi::ControlValue;
   unsafe fn get(&self) -> &Self::Inner {
     &self.inner
   }

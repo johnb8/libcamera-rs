@@ -7,7 +7,7 @@ void Request::add_buffer(const Stream &stream, FrameBuffer &buffer) {
 
   int ret = this->inner->addBuffer(stream.into_ptr(), buffer.into_ptr());
   if (ret < 0) {
-    throw(BindErrorCode)(-ret);
+    throw error_from_code(-ret);
   }
 }
 
@@ -17,4 +17,32 @@ libcamera::Request *Request::into_ptr() {
   return this->inner.get();
 }
 
-rust::String Request::raw_to_string() const { return this->inner->toString(); }
+#include <iostream>
+
+BindControlValue Request::get_control(unsigned int id) const {
+  VALIDATE_POINTERS()
+
+  libcamera::ControlList &controls = this->inner->controls();
+
+  if (!controls.contains(id)) {
+    throw std::runtime_error("No control with specified id.");
+  }
+  BindControlValue control_value{
+      .inner = std::make_unique<ControlValue>(controls.get(id)),
+  };
+  return control_value;
+}
+
+void Request::set_control(unsigned int id, const ControlValue &value) {
+  VALIDATE_POINTERS()
+
+  libcamera::ControlList &controls = this->inner->controls();
+
+  controls.set(id, value.get_inner());
+}
+
+rust::String Request::raw_to_string() const {
+  VALIDATE_POINTERS()
+
+  return this->inner->toString();
+}

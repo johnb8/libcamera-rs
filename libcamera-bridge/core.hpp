@@ -1,8 +1,9 @@
-#ifndef _HOME_BEN1JEN_GITLAB_LIBCAMERA_RS_LIBCAMERA_BRIDGE_CORE_HPP
-#define _HOME_BEN1JEN_GITLAB_LIBCAMERA_RS_LIBCAMERA_BRIDGE_CORE_HPP
+#ifndef _LIBCAMERA_BRIDGE_CORE_HPP
+#define _LIBCAMERA_BRIDGE_CORE_HPP
 
 #pragma once
 
+#include <cstring>
 #include <mutex>
 #include <queue>
 
@@ -29,22 +30,30 @@ struct BindFrameBufferPlane;
 struct BindFd;
 struct BindMemoryBuffer;
 struct BindRequest;
+struct BindControlId;
+struct BindControlValue;
 
 struct CameraConfiguration;
 struct PixelFormat;
 struct Size;
 struct Request;
-enum class DefaultPixelFormat;
+struct ControlValue;
 
+enum class DefaultPixelFormat;
+enum class CameraControlType;
 enum class CameraMessageType;
 struct CameraMessage;
 
 using CameraConfigurationStatus = libcamera::CameraConfiguration::Status;
 
+static inline std::runtime_error error_from_code(int code) {
+  return std::runtime_error(strerror(code));
+}
+
 // Make sure this->inner is non-null
 #define VALIDATE_POINTERS()                                                    \
   if (!this->inner) {                                                          \
-    throw(BindErrorCode) EFAULT;                                               \
+    throw std::runtime_error("Inner pointer invalid.");                        \
   }
 
 BindCameraManager make_camera_manager();
@@ -70,10 +79,13 @@ private:
   std::mutex message_mutex;
   std::queue<CameraMessage> message_queue;
 
+  std::unordered_map<unsigned int, const libcamera::ControlId *> controls_by_id;
+
 public:
   explicit Camera(std::shared_ptr<libcamera::Camera> inner_);
   ~Camera();
   std::shared_ptr<libcamera::Camera> into_shared();
+  const libcamera::ControlId *get_control_by_id(unsigned int id) const;
 
   void acquire();
   void release();
@@ -84,7 +96,7 @@ public:
   void queue_request(Request &req);
   void start();
   void stop();
-
+  rust::Vec<BindControlId> get_controls() const;
   rust::Vec<CameraMessage> poll_events();
 };
 
@@ -233,6 +245,38 @@ public:
   libcamera::Request *into_ptr();
 
   void add_buffer(const Stream &stream, FrameBuffer &buffer);
+  BindControlValue get_control(unsigned int id) const;
+  void set_control(unsigned int id, const ControlValue &value);
+  [[nodiscard]] rust::String raw_to_string() const;
+};
+
+struct ControlId {
+private:
+  const libcamera::ControlId *inner;
+
+public:
+  explicit ControlId(const libcamera::ControlId *inner_) : inner{inner_} {}
+
+  rust::String get_name() const;
+  unsigned int get_id() const;
+  CameraControlType get_type() const;
+};
+
+BindControlValue new_control_value_bool(bool value);
+BindControlValue new_control_value_byte(unsigned char value);
+BindControlValue new_control_value_i32(int value);
+BindControlValue new_control_value_i64(long int value);
+BindControlValue new_control_value_f32(float value);
+BindControlValue new_control_value_string(rust::String value);
+
+struct ControlValue {
+private:
+  const libcamera::ControlValue inner;
+
+public:
+  explicit ControlValue(libcamera::ControlValue inner_) : inner{inner_} {}
+  const libcamera::ControlValue &get_inner() const;
+
   [[nodiscard]] rust::String raw_to_string() const;
 };
 

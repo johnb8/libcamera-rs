@@ -16,7 +16,7 @@ size_t FrameBufferAllocator::allocate(Stream &stream) {
 
   int ret = this->inner->allocate(stream.into_ptr());
   if (ret < 0) {
-    throw(BindErrorCode)(-ret);
+    throw error_from_code(-ret);
   }
 
   return ret;
@@ -27,7 +27,7 @@ void FrameBufferAllocator::free(Stream &stream) {
 
   int ret = this->inner->free(stream.into_ptr());
   if (ret < 0) {
-    throw(BindErrorCode)(-ret);
+    throw error_from_code(-ret);
   }
 }
 

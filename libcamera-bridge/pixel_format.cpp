@@ -42,9 +42,7 @@ BindPixelFormat get_default_pixel_format(DefaultPixelFormat default_format) {
     break;
   }
   if (fmt == nullptr) {
-    // The thrown error is an int and so is copyable.
-    // NOLINTNEXTLINE(cert-err09-cpp,cert-err61-cpp)
-    throw BindErrorCode::EFault;
+    throw std::runtime_error("Unknown default pixel format.");
   }
   BindPixelFormat pixel_format{
       .inner = std::make_unique<PixelFormat>(*fmt),

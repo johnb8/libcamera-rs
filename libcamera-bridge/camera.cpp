@@ -41,7 +41,7 @@ void Camera::acquire() {
 
   int ret = this->inner->acquire();
   if (ret < 0) {
-    throw(BindErrorCode)(-ret);
+    throw error_from_code(-ret);
   }
 }
 
@@ -50,7 +50,7 @@ void Camera::release() {
 
   int ret = this->inner->release();
   if (ret < 0) {
-    throw(BindErrorCode)(-ret);
+    throw error_from_code(-ret);
   }
 }
 
@@ -66,7 +66,7 @@ Camera::generate_configuration(rust::Slice<const libcamera::StreamRole> roles) {
   std::unique_ptr<libcamera::CameraConfiguration> conf =
       this->inner->generateConfiguration(roles_vec);
   if (!conf) {
-    throw(BindErrorCode) ENODEV;
+    throw error_from_code(ENODEV);
   }
 
   BindCameraConfiguration bind_conf{
@@ -80,7 +80,7 @@ void Camera::configure(CameraConfiguration &conf) {
 
   int ret = this->inner->configure(conf.into_ptr());
   if (ret < 0) {
-    throw(BindErrorCode)(-ret);
+    throw error_from_code(-ret);
   }
 }
 
@@ -89,7 +89,7 @@ BindRequest Camera::create_request(unsigned long cookie) {
 
   std::unique_ptr<libcamera::Request> req = this->inner->createRequest(cookie);
   if (!req) {
-    throw(BindErrorCode) ENODEV;
+    throw error_from_code(ENODEV);
   }
 
   BindRequest bind_req{
@@ -103,7 +103,7 @@ void Camera::queue_request(Request &req) {
 
   int ret = this->inner->queueRequest(req.into_ptr());
   if (ret < 0) {
-    throw(BindErrorCode)(-ret);
+    throw error_from_code(-ret);
   }
 }
 
@@ -112,7 +112,7 @@ void Camera::start() {
 
   int ret = this->inner->start();
   if (ret < 0) {
-    throw(BindErrorCode)(-ret);
+    throw error_from_code(-ret);
   }
 }
 
@@ -121,8 +121,21 @@ void Camera::stop() {
 
   int ret = this->inner->stop();
   if (ret < 0) {
-    throw(BindErrorCode)(-ret);
+    throw error_from_code(-ret);
   }
+}
+
+rust::Vec<BindControlId> Camera::get_controls() const {
+  VALIDATE_POINTERS()
+
+  rust::Vec<BindControlId> controls;
+  for (const auto &[control, _value] : this->inner->controls()) {
+    BindControlId control_id{
+        .inner = std::make_unique<ControlId>(control),
+    };
+    controls.push_back(std::move(control_id));
+  }
+  return controls;
 }
 
 rust::Vec<CameraMessage> Camera::poll_events() {

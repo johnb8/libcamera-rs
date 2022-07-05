@@ -13,6 +13,8 @@ fn main() {
     .file("libcamera-bridge/fd.cpp")
     .file("libcamera-bridge/memory_buffer.cpp")
     .file("libcamera-bridge/request.cpp")
+    .file("libcamera-bridge/control_id.cpp")
+    .file("libcamera-bridge/control_value.cpp")
     .flag_if_supported("-std=c++17")
     .include("/usr/local/include/libcamera")
     .include("libcamera/build/include/libcamera")
@@ -20,7 +22,7 @@ fn main() {
 
   println!("cargo:rerun-if-changed=src/bridge.rs");
   println!("cargo:rerun-if-changed=libcamera-bridge/*.cpp");
-  println!("cargo:rerun-if-changed=libcamera-bridge/*.hpp");
+  println!("cargo:rerun-if-changed=libcamera-bridge/core.hpp");
 
   // link libcamera
   println!("cargo:rustc-link-lib=dylib=camera");

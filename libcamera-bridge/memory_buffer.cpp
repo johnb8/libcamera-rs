@@ -4,9 +4,7 @@
 
 BindMemoryBuffer MemoryBuffer::sub_buffer(size_t offset, size_t length) {
   if (offset > this->length || offset + length > this->length) {
-    // The thrown error is an int and so is copyable.
-    // NOLINTNEXTLINE(cert-err09-cpp,cert-err61-cpp)
-    throw BindErrorCode::EFault;
+    throw std::runtime_error("Sub buffer out of range of outer buffer.");
   }
   BindMemoryBuffer buffer{
       // The point of this class is to safely wrap raw memory pointers.

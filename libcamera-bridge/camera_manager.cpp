@@ -15,7 +15,7 @@ void CameraManager::start() {
 
   int ret = this->inner->start();
   if (ret < 0) {
-    throw(BindErrorCode)(-ret);
+    throw error_from_code(-ret);
   }
 }
 
@@ -40,7 +40,7 @@ BindCamera CameraManager::get_camera_by_id(rust::Str id) {
 
   std::shared_ptr<libcamera::Camera> cam = this->inner->get(std::string(id));
   if (!cam) {
-    throw(BindErrorCode) ENODEV;
+    throw error_from_code(ENODEV);
   }
   BindCamera bind_cam{
       .inner = std::make_unique<Camera>(cam),

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 #[test]
 fn test_unsafe_camera() {
-  let mut cm = ffi::make_camera_manager();
+  let mut cm = unsafe { ffi::make_camera_manager() };
   unsafe { cm.get_mut().start() }.unwrap();
   let camera_ids = unsafe { cm.get().get_camera_ids() };
   println!("Available Cameras: {camera_ids:?}");
@@ -46,6 +46,16 @@ fn test_unsafe_camera() {
 
   unsafe { camera.get_mut().configure(config.get_mut()) }.unwrap();
 
+  let controls = unsafe { camera.get().get_controls() };
+  for control in &controls {
+    println!(
+      "Camera control '{}': ID={}, type={:?}",
+      unsafe { control.get().get_name() },
+      unsafe { control.get().get_id() },
+      unsafe { control.get().get_type() }
+    );
+  }
+
   let mut stream = unsafe { stream_config.get().stream() };
 
   let buffer_count = unsafe { allocator.get_mut().allocate(stream.get_mut()) }.unwrap();
@@ -55,6 +65,20 @@ fn test_unsafe_camera() {
   let mut planes = Vec::new();
   for mut buffer in unsafe { allocator.get().buffers(stream.get_mut()) } {
     let mut request = unsafe { camera.get_mut().create_request(69) }.unwrap();
+
+    unsafe {
+      request
+        .get_mut()
+        .set_control(9, ffi::new_control_value_f32(0.5).get())
+    };
+    for control in &controls {
+      println!(
+        "Control '{}' value in current request: {:?}",
+        unsafe { control.get().get_id() },
+        unsafe { request.get().get_control(control.get().get_id()) }
+          .map(|c| unsafe { c.get().raw_to_string() })
+      );
+    }
 
     unsafe { buffer.get_mut().set_cookie(420) };
 

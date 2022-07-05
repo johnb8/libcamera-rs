@@ -1,3 +1,6 @@
 [submodule "libcamera"]
 	path = libcamera
 	url = https://git.libcamera.org/libcamera/libcamera.git
+[submodule "gnutls"]
+	path = gnutls
+	url = https://gitlab.com/gnutls/gnutls.git
