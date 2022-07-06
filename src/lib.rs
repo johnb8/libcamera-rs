@@ -19,6 +19,8 @@ pub enum LibcameraError {
   InvalidConfig,
   #[error("No buffer ready for capture (all buffers in use, capture pictures slower!)")]
   NoBufferReady,
+  #[error("Control value out of range!")]
+  InvalidControlValue,
 }
 
 type Result<T> = std::result::Result<T, LibcameraError>;

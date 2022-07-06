@@ -125,15 +125,30 @@ void Camera::stop() {
   }
 }
 
-rust::Vec<BindControlId> Camera::get_controls() const {
+rust::Vec<ControlPair> Camera::get_controls() const {
   VALIDATE_POINTERS()
 
-  rust::Vec<BindControlId> controls;
-  for (const auto &[control, _value] : this->inner->controls()) {
-    BindControlId control_id{
-        .inner = std::make_unique<ControlId>(control),
+  rust::Vec<ControlPair> controls;
+  for (const auto &[control, value] : this->inner->controls()) {
+    ControlPair control_pair{
+        .id =
+            {
+                .inner = std::make_unique<ControlId>(control),
+            },
+        .min =
+            {
+                .inner = std::make_unique<ControlValue>(value.min()),
+            },
+        .max =
+            {
+                .inner = std::make_unique<ControlValue>(value.max()),
+            },
+        .value =
+            {
+                .inner = std::make_unique<ControlValue>(value.def()),
+            },
     };
-    controls.push_back(std::move(control_id));
+    controls.push_back(std::move(control_pair));
   }
   return controls;
 }

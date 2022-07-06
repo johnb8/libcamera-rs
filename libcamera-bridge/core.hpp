@@ -38,6 +38,7 @@ struct PixelFormat;
 struct Size;
 struct Request;
 struct ControlValue;
+struct ControlPair;
 
 enum class DefaultPixelFormat;
 enum class CameraControlType;
@@ -96,7 +97,7 @@ public:
   void queue_request(Request &req);
   void start();
   void stop();
-  rust::Vec<BindControlId> get_controls() const;
+  rust::Vec<ControlPair> get_controls() const;
   rust::Vec<CameraMessage> poll_events();
 };
 
@@ -263,7 +264,7 @@ public:
 };
 
 BindControlValue new_control_value_bool(bool value);
-BindControlValue new_control_value_byte(unsigned char value);
+BindControlValue new_control_value_u8(unsigned char value);
 BindControlValue new_control_value_i32(int value);
 BindControlValue new_control_value_i64(long int value);
 BindControlValue new_control_value_f32(float value);
@@ -276,6 +277,12 @@ private:
 public:
   explicit ControlValue(libcamera::ControlValue inner_) : inner{inner_} {}
   const libcamera::ControlValue &get_inner() const;
+
+  bool get_bool() const;
+  unsigned char get_u8() const;
+  int get_i32() const;
+  long get_i64() const;
+  float get_f32() const;
 
   [[nodiscard]] rust::String raw_to_string() const;
 };

@@ -202,6 +202,13 @@ pub mod ffi {
     Size = 8,
   }
 
+  struct ControlPair {
+    id: BindControlId,
+    min: BindControlValue,
+    max: BindControlValue,
+    value: BindControlValue,
+  }
+
   extern "C++" {
     include!("libcamera-rs/libcamera-bridge/core.hpp");
 
@@ -232,7 +239,7 @@ pub mod ffi {
     pub unsafe fn queue_request(self: Pin<&mut Camera>, req: Pin<&mut Request>) -> Result<()>;
     pub unsafe fn start(self: Pin<&mut Camera>) -> Result<()>;
     pub unsafe fn stop(self: Pin<&mut Camera>) -> Result<()>;
-    pub unsafe fn get_controls(self: &Camera) -> Vec<BindControlId>;
+    pub unsafe fn get_controls(self: &Camera) -> Vec<ControlPair>;
     pub unsafe fn poll_events(self: Pin<&mut Camera>) -> Vec<CameraMessage>;
 
     type CameraConfiguration;
@@ -328,11 +335,17 @@ pub mod ffi {
     type ControlValue;
 
     pub unsafe fn new_control_value_bool(value: bool) -> BindControlValue;
-    pub unsafe fn new_control_value_byte(value: u8) -> BindControlValue;
+    pub unsafe fn new_control_value_u8(value: u8) -> BindControlValue;
     pub unsafe fn new_control_value_i32(value: i32) -> BindControlValue;
     pub unsafe fn new_control_value_i64(value: i64) -> BindControlValue;
     pub unsafe fn new_control_value_f32(value: f32) -> BindControlValue;
     pub unsafe fn new_control_value_string(value: String) -> BindControlValue;
+
+    pub unsafe fn get_bool(self: &ControlValue) -> Result<bool>;
+    pub unsafe fn get_u8(self: &ControlValue) -> Result<u8>;
+    pub unsafe fn get_i32(self: &ControlValue) -> Result<i32>;
+    pub unsafe fn get_i64(self: &ControlValue) -> Result<i64>;
+    pub unsafe fn get_f32(self: &ControlValue) -> Result<f32>;
 
     pub unsafe fn raw_to_string(self: &ControlValue) -> String;
   }

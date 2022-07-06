@@ -49,10 +49,11 @@ fn test_unsafe_camera() {
   let controls = unsafe { camera.get().get_controls() };
   for control in &controls {
     println!(
-      "Camera control '{}': ID={}, type={:?}",
-      unsafe { control.get().get_name() },
-      unsafe { control.get().get_id() },
-      unsafe { control.get().get_type() }
+      "Camera control '{}': ID={}, type={:?}, value={}",
+      unsafe { control.id.get().get_name() },
+      unsafe { control.id.get().get_id() },
+      unsafe { control.id.get().get_type() },
+      unsafe { control.value.get().raw_to_string() },
     );
   }
 
@@ -69,13 +70,13 @@ fn test_unsafe_camera() {
     unsafe {
       request
         .get_mut()
-        .set_control(9, ffi::new_control_value_f32(0.5).get())
+        .set_control(9, ffi::new_control_value_f32(-0.5).get())
     };
     for control in &controls {
       println!(
         "Control '{}' value in current request: {:?}",
-        unsafe { control.get().get_id() },
-        unsafe { request.get().get_control(control.get().get_id()) }
+        unsafe { control.id.get().get_id() },
+        unsafe { request.get().get_control(control.id.get().get_id()) }
           .map(|c| unsafe { c.get().raw_to_string() })
       );
     }
