@@ -280,91 +280,89 @@ impl CameraControls {
   pub(crate) fn get_libcamera(&self) -> Vec<(u32, ffi::BindControlValue)> {
     let mut controls = Vec::new();
     if let Some(ae_enable) = &self.ae_enable {
-      ae_enable.get_value_if_changed().map(|value| {
+      if let Some(value) = ae_enable.get_value_if_changed() {
         controls.push((1, unsafe { ffi::new_control_value_bool(value) }));
-      });
+      }
     }
     if let Some(ae_metering_mode) = &self.ae_metering_mode {
-      ae_metering_mode.get_value_if_changed().map(|value| {
+      if let Some(value) = ae_metering_mode.get_value_if_changed() {
         controls.push((3, unsafe { ffi::new_control_value_i32(value) }));
-      });
+      }
     }
     if let Some(ae_constraint_mode) = &self.ae_constraint_mode {
-      ae_constraint_mode.get_value_if_changed().map(|value| {
+      if let Some(value) = ae_constraint_mode.get_value_if_changed() {
         controls.push((4, unsafe { ffi::new_control_value_i32(value) }));
-      });
+      }
     }
     if let Some(ae_exposure_mode) = &self.ae_exposure_mode {
-      ae_exposure_mode.get_value_if_changed().map(|value| {
+      if let Some(value) = ae_exposure_mode.get_value_if_changed() {
         controls.push((5, unsafe { ffi::new_control_value_i32(value) }));
-      });
+      }
     }
     if let Some(exposure_value) = &self.exposure_value {
-      exposure_value.get_value_if_changed().map(|value| {
+      if let Some(value) = exposure_value.get_value_if_changed() {
         controls.push((6, unsafe { ffi::new_control_value_f32(value) }));
-      });
+      }
     }
     if let Some(exposure_time) = &self.exposure_time {
-      exposure_time.get_value_if_changed().map(|value| {
+      if let Some(value) = exposure_time.get_value_if_changed() {
         controls.push((7, unsafe { ffi::new_control_value_i32(value) }));
-      });
+      }
     }
     if let Some(analogue_gain) = &self.analogue_gain {
-      analogue_gain.get_value_if_changed().map(|value| {
+      if let Some(value) = analogue_gain.get_value_if_changed() {
         controls.push((8, unsafe { ffi::new_control_value_f32(value) }));
-      });
+      }
     }
     if let Some(brightness) = &self.brightness {
-      brightness.get_value_if_changed().map(|value| {
+      if let Some(value) = brightness.get_value_if_changed() {
         controls.push((9, unsafe { ffi::new_control_value_f32(value) }));
-      });
+      }
     }
     if let Some(contrast) = &self.contrast {
-      contrast.get_value_if_changed().map(|value| {
+      if let Some(value) = contrast.get_value_if_changed() {
         controls.push((10, unsafe { ffi::new_control_value_f32(value) }));
-      });
+      }
     }
     if let Some(awb_enable) = &self.awb_enable {
-      awb_enable.get_value_if_changed().map(|value| {
+      if let Some(value) = awb_enable.get_value_if_changed() {
         controls.push((12, unsafe { ffi::new_control_value_bool(value) }));
-      });
+      }
     }
     if let Some(awb_mode) = &self.awb_mode {
-      awb_mode.get_value_if_changed().map(|value| {
+      if let Some(value) = awb_mode.get_value_if_changed() {
         controls.push((13, unsafe { ffi::new_control_value_i32(value) }));
-      });
+      }
     }
     if let Some(colour_gains) = &self.colour_gains {
-      colour_gains.get_value_if_changed().map(|value| {
+      if let Some(value) = colour_gains.get_value_if_changed() {
         controls.push((15, unsafe { ffi::new_control_value_f32(value) }));
-      });
+      }
     }
     if let Some(saturation) = &self.saturation {
-      saturation.get_value_if_changed().map(|value| {
+      if let Some(value) = saturation.get_value_if_changed() {
         controls.push((17, unsafe { ffi::new_control_value_f32(value) }));
-      });
+      }
     }
     if let Some(sharpness) = &self.sharpness {
-      sharpness.get_value_if_changed().map(|value| {
+      if let Some(value) = sharpness.get_value_if_changed() {
         controls.push((19, unsafe { ffi::new_control_value_f32(value) }));
-      });
+      }
     }
     if let Some(colour_correction_matrix) = &self.colour_correction_matrix {
-      colour_correction_matrix
-        .get_value_if_changed()
-        .map(|value| {
-          controls.push((21, unsafe { ffi::new_control_value_f32(value) }));
-        });
+      if let Some(value) = colour_correction_matrix.get_value_if_changed() {
+        controls.push((21, unsafe { ffi::new_control_value_f32(value) }));
+      }
     }
     if let Some(frame_duration_limits) = &self.frame_duration_limits {
-      frame_duration_limits.get_value_if_changed().map(|value| {
+      if let Some(value) = frame_duration_limits.get_value_if_changed() {
         controls.push((25, unsafe { ffi::new_control_value_i64(value) }));
-      });
+      }
     }
     if let Some(noise_reduction_mode) = &self.noise_reduction_mode {
-      noise_reduction_mode.get_value_if_changed().map(|value| {
+      if let Some(value) = noise_reduction_mode.get_value_if_changed() {
         controls.push((39, unsafe { ffi::new_control_value_i32(value) }));
-      });
+      }
     }
     for (id, (_name, value)) in &self.others {
       if let Some(value) = match value {
