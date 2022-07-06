@@ -298,6 +298,9 @@ impl Camera<'_> {
       Err(LibcameraError::NoBufferReady)
     }
   }
+  /// Poll events from the camera.
+  ///
+  /// The results should be in order of when the camera sent them, but not neccesarily in order of when they were initially queued. Make sure to use `serial_id`, or the event `timestamp` to keep track of that if you need to.
   pub fn poll_events(&mut self) -> Result<Vec<CameraEvent>> {
     let events = unsafe { self.inner.get_mut().poll_events() };
     Ok(
@@ -318,7 +321,7 @@ impl Camera<'_> {
             println!("Pixel format: {:?}", stream.pixel_format);
             Some(CameraEvent::RequestComplete {
               serial_id: request_id,
-              timestamp: request_info.timestamp,
+              queue_timestamp: request_info.timestamp,
               image: RawCameraImage {
                 width: stream.width as usize,
                 height: stream.height as usize,
@@ -346,12 +349,16 @@ impl Drop for Camera<'_> {
   }
 }
 
-/// Represents raw image data fetched from the camera
+/// Represents raw image data fetched from the camera.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RawCameraImage {
+  /// The pixel format for the image, if it is known.
   pub pixel_format: Option<PixelFormat>,
+  /// The width of the image.
   pub width: usize,
+  /// The height of the image.
   pub height: usize,
+  /// The raw data planes for the image.
   pub planes: Vec<Vec<u8>>,
 }
 
@@ -390,11 +397,15 @@ impl RawCameraImage {
 
 /// Represents an event from the camera
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CameraEvent {
   /// Triggered when a capture request has completed, containing a vec of the resulting image planes.
   RequestComplete {
+    /// The same `serial_id` that was returned from the function that queued this request.
     serial_id: u64,
-    timestamp: Instant,
+    /// When this event was __queued__ to the camera.
+    queue_timestamp: Instant,
+    /// The raw image data for this request, might not actually contain a real image (at the moment there isn't any way of determining success as far as I can tell).
     image: RawCameraImage,
   },
 }

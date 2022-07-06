@@ -18,9 +18,13 @@ pub trait CameraImage<const PLANES: usize> {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiImage {
+  /// Image in the BGR format.
   Bgr(BgrImage),
+  /// Image in the RGB format.
   Rgb(RgbImage),
+  /// Image in the YUYV 4:2:2 format.
   Yuyv(YuyvImage),
+  /// Image in the YUV 4:2:0 format.
   Yuv420(Yuv420Image),
 }
 
@@ -78,7 +82,8 @@ impl CameraImage<1> for BgrImage {
 }
 
 impl BgrImage {
-  pub fn as_rgb(&self) -> Option<RgbImage> {
+  /// Convert this image into a BGR image.
+  pub fn as_rgb(&self) -> RgbImage {
     RgbImage::from_planes(
       self.width,
       self.height,
@@ -94,6 +99,7 @@ impl BgrImage {
         })
         .collect()],
     )
+    .expect("Failed to convert RGB to BGR (this should never fail.)")
   }
 }
 
@@ -118,6 +124,7 @@ impl CameraImage<1> for RgbImage {
       None
     }
   }
+  /// Convert this image into BGR format. This should never return None.
   fn as_bgr(&self) -> Option<BgrImage> {
     BgrImage::from_planes(
       self.width,

@@ -26,9 +26,11 @@ impl CameraConfig {
   pub(crate) fn get_inner(&mut self) -> &mut ffi::BindCameraConfiguration {
     &mut self.inner
   }
+  /// Get a reference to the vec of stream configurations contained within this camera configuration.
   pub fn streams(&self) -> &Vec<StreamConfig> {
     &self.streams
   }
+  /// Get a mutable reference to the vec of stream configurations contained within this camera configuration.
   pub fn streams_mut(&mut self) -> &mut Vec<StreamConfig> {
     &mut self.streams
   }
@@ -82,6 +84,7 @@ impl StreamConfig {
       size.get().get_height()
     })
   }
+  /// Get a human-readable description of this stream configuraiton from libcamera.
   pub fn description(&self) -> String {
     unsafe { self.inner.get().raw_to_string() }
   }

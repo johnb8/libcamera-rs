@@ -131,11 +131,17 @@ impl TryFrom<&ffi::ControlPair> for MinMaxValue<f32> {
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum CameraControlValue {
+  /// A control value not containing a value.
   None,
+  /// A control value containing a boolean, e.g. autoexpose enable.
   Bool(MinMaxValue<bool>),
+  /// A control value containing a single byte value.
   Byte(MinMaxValue<u8>),
+  /// A control value containing a 32-bit integer, e.g. exposure time.
   Integer32(MinMaxValue<i32>),
+  /// A control value containing a 64-bit integer, e.g. frame duration limit.
   Integer64(MinMaxValue<i64>),
+  /// A control value containing a 32-bit float, e.g. brightness.
   Float(MinMaxValue<f32>),
   // String(MinMaxValue<String>),
   // Rectangle(MinMaxValue<Rectangle>),
@@ -148,24 +154,47 @@ pub enum CameraControlValue {
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct CameraControls {
+  /// Autoexposure enable.
   pub ae_enable: Option<MinMaxValue<bool>>,
+  /// Autoexposure metering mode.
+  /// **TODO**: This should be an enum.
   pub ae_metering_mode: Option<MinMaxValue<i32>>,
+  /// Autoexposure constraint mode.
+  /// **TODO**: This should be an enum.
   pub ae_constraint_mode: Option<MinMaxValue<i32>>,
+  /// Autoexposure mode.
+  /// **TODO**: This should be an enum.
   pub ae_exposure_mode: Option<MinMaxValue<i32>>,
+  /// Exposure "value".
   pub exposure_value: Option<MinMaxValue<f32>>,
+  /// Exposure time.
   pub exposure_time: Option<MinMaxValue<i32>>,
+  /// Analogue signal gain.
   pub analogue_gain: Option<MinMaxValue<f32>>,
+  /// Brightness
   pub brightness: Option<MinMaxValue<f32>>,
+  /// Contrast
   pub contrast: Option<MinMaxValue<f32>>,
+  /// Auto white balance enable.
   pub awb_enable: Option<MinMaxValue<bool>>,
+  /// Auto white balance mode.
+  /// **TODO**: This should be an enum.
   pub awb_mode: Option<MinMaxValue<i32>>,
+  /// Colour gains.
   pub colour_gains: Option<MinMaxValue<f32>>,
+  /// Saturation.
   pub saturation: Option<MinMaxValue<f32>>,
+  /// Sharpness.
   pub sharpness: Option<MinMaxValue<f32>>,
+  /// Colour correction "matrix".
   pub colour_correction_matrix: Option<MinMaxValue<f32>>,
   // pub scaler_crop: Option<MinMaxValue<Rectangle>>, // Rectangle TODO
+  /// Frame duration limit.
   pub frame_duration_limits: Option<MinMaxValue<i64>>,
+  /// Noise reduction mode.
+  /// **TODO**: This should be an enum.
   pub noise_reduction_mode: Option<MinMaxValue<i32>>,
+  /// Values not directly handled by this struct but found on your camera, maps control IDs to a tuple containing a name for the control as well as the value.
   pub others: HashMap<u32, (String, CameraControlValue)>,
 }
 

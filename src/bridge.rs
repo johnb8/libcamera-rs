@@ -12,6 +12,7 @@ pub mod ffi {
   #[repr(i32)]
   #[derive(Debug)]
   enum StreamRole {
+    /// ???
     Raw,
     /// Capturing still images
     StillCapture,
