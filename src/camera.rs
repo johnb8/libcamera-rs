@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 use std::fmt::{self, Debug};
 use std::marker::PhantomData;
-use std::ops::RangeInclusive;
+use std::time::Instant;
 
 use crate::bridge::{ffi, GetInner};
-use crate::config::CameraConfig;
+use crate::config::{CameraConfig, PixelFormat};
+use crate::controls::CameraControls;
+use crate::image::{self, CameraImage, MultiImage};
 use crate::{LibcameraError, Result};
 
 pub use ffi::StreamRole;
@@ -14,7 +16,7 @@ pub struct CameraManager {
   inner: ffi::BindCameraManager,
 }
 
-impl fmt::Debug for CameraManager {
+impl Debug for CameraManager {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("CameraManager").finish_non_exhaustive()
   }
@@ -47,6 +49,8 @@ impl CameraManager {
       streams: Vec::new(),
       started: false,
       controls,
+      next_request_id: 0,
+      request_infos: HashMap::new(),
     })
   }
 }
@@ -58,418 +62,44 @@ impl Drop for CameraManager {
 }
 
 struct CameraBuffer {
-  buffer_id: u32,
   buffer: ffi::BindFrameBuffer,
   request: Option<ffi::BindRequest>,
   planes: Vec<ffi::BindMemoryBuffer>,
 }
 
-impl fmt::Debug for CameraBuffer {
+impl Debug for CameraBuffer {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("CameraBuffer")
-      .field("buffer_id", &self.buffer_id)
       .field("plane_count", &self.planes.len())
       .finish_non_exhaustive()
   }
 }
 
 struct CameraStream {
-  stream_id: u32,
+  pixel_format: Option<PixelFormat>,
+  width: u32,
+  height: u32,
   stream: ffi::BindStream,
   next_buffer: usize,
   buffers: Vec<CameraBuffer>,
 }
 
-impl fmt::Debug for CameraStream {
+impl Debug for CameraStream {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("CameraStream")
-      .field("stream_id", &self.stream_id)
+      .field("pixel_format", &self.pixel_format)
+      .field("width", &self.width)
+      .field("height", &self.height)
       .field("next_buffer", &self.next_buffer)
       .field("buffers", &self.buffers)
       .finish_non_exhaustive()
   }
 }
 
-/// Contains a value with an acceptable minimum and maximum and a default.
-#[derive(Debug)]
-pub struct MinMaxValue<T: PartialOrd + Copy + Debug> {
-  range: RangeInclusive<T>,
-  default: T,
-  value: T,
-}
-
-impl<T: PartialOrd + Copy + Debug> MinMaxValue<T> {
-  /// Creates a new MinMaxValue out of a given min, max, and default
-  ///
-  /// # Returns
-  /// Returns None if default is not within min and max.
-  pub fn new(min: T, max: T, default: T) -> Result<MinMaxValue<T>> {
-    let range = min..=max;
-    if range.contains(&default) {
-      Ok(MinMaxValue {
-        range: min..=max,
-        default,
-        value: default,
-      })
-    } else {
-      Err(LibcameraError::InvalidControlValue)
-    }
-  }
-  /// Retrieve the default value
-  pub fn get_default(&self) -> T {
-    self.default
-  }
-  /// Retrieve the minimum value
-  pub fn min(&self) -> T {
-    *self.range.start()
-  }
-  /// Retrieve the maximum value
-  pub fn max(&self) -> T {
-    *self.range.end()
-  }
-  /// Gets the stored value
-  /// It is gurenteed to lie within MinMaxValue::min() and MinMaxValue::max().
-  pub fn get_value(&self) -> T {
-    self.value
-  }
-  /// Verifies that value lies within the acceptable range for this value
-  ///
-  /// # Returns
-  /// `true` if the value lies within the acceptable range for this value and was stored, `false` otherwise.
-  pub fn set_value(&mut self, value: T) -> bool {
-    if self.range.contains(&value) {
-      self.value = value;
-      true
-    } else {
-      false
-    }
-  }
-}
-
-impl TryFrom<&ffi::ControlPair> for MinMaxValue<bool> {
-  type Error = LibcameraError;
-  fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<bool>> {
-    MinMaxValue::new(
-      unsafe { pair.min.get().get_bool() }?,
-      unsafe { pair.max.get().get_bool() }?,
-      unsafe { pair.value.get().get_bool() }?,
-    )
-  }
-}
-
-impl TryFrom<&ffi::ControlPair> for MinMaxValue<u8> {
-  type Error = LibcameraError;
-  fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<u8>> {
-    MinMaxValue::new(
-      unsafe { pair.min.get().get_u8() }?,
-      unsafe { pair.max.get().get_u8() }?,
-      unsafe { pair.value.get().get_u8() }?,
-    )
-  }
-}
-
-impl TryFrom<&ffi::ControlPair> for MinMaxValue<i32> {
-  type Error = LibcameraError;
-  fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<i32>> {
-    MinMaxValue::new(
-      unsafe { pair.min.get().get_i32() }?,
-      unsafe { pair.max.get().get_i32() }?,
-      unsafe { pair.value.get().get_i32() }?,
-    )
-  }
-}
-
-impl TryFrom<&ffi::ControlPair> for MinMaxValue<i64> {
-  type Error = LibcameraError;
-  fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<i64>> {
-    MinMaxValue::new(
-      unsafe { pair.min.get().get_i64() }?,
-      unsafe { pair.max.get().get_i64() }?,
-      unsafe { pair.value.get().get_i64() }?,
-    )
-  }
-}
-
-impl TryFrom<&ffi::ControlPair> for MinMaxValue<f32> {
-  type Error = LibcameraError;
-  fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<f32>> {
-    MinMaxValue::new(
-      unsafe { pair.min.get().get_f32() }?,
-      unsafe { pair.max.get().get_f32() }?,
-      unsafe { pair.value.get().get_f32() }?,
-    )
-  }
-}
-
-/// Represents a camera control value with an unknown type
-///
-/// Most of the time you probably want to use `CameraControls` instead.
-#[non_exhaustive]
-#[derive(Debug)]
-pub enum CameraControlValue {
-  None,
-  Bool(MinMaxValue<bool>),
-  Byte(MinMaxValue<u8>),
-  Integer32(MinMaxValue<i32>),
-  Integer64(MinMaxValue<i64>),
-  Float(MinMaxValue<f32>),
-  // String(MinMaxValue<String>),
-  // Rectangle(MinMaxValue<Rectangle>),
-  // Size(MinMaxValue<Size>),
-}
-
-/// Stores camera controls.
-///
-/// Common controls are fields on this struct
-#[non_exhaustive]
-#[derive(Debug, Default)]
-pub struct CameraControls {
-  pub ae_enable: Option<MinMaxValue<bool>>,
-  pub ae_metering_mode: Option<MinMaxValue<i32>>,
-  pub ae_constraint_mode: Option<MinMaxValue<i32>>,
-  pub ae_exposure_mode: Option<MinMaxValue<i32>>,
-  pub exposure_value: Option<MinMaxValue<f32>>,
-  pub exposure_time: Option<MinMaxValue<i32>>,
-  pub analogue_gain: Option<MinMaxValue<f32>>,
-  pub brightness: Option<MinMaxValue<f32>>,
-  pub contract: Option<MinMaxValue<f32>>,
-  pub awb_enable: Option<MinMaxValue<bool>>,
-  pub awb_mode: Option<MinMaxValue<i32>>,
-  pub colour_gains: Option<MinMaxValue<f32>>,
-  pub saturation: Option<MinMaxValue<f32>>,
-  pub sharpness: Option<MinMaxValue<f32>>,
-  pub colour_correction_matrix: Option<MinMaxValue<f32>>,
-  // pub scaler_crop: Option<MinMaxValue<Rectangle>>, // Rectangle TODO
-  pub frame_duration_limits: Option<MinMaxValue<i64>>,
-  pub noise_reduction_mode: Option<MinMaxValue<i32>>,
-  pub others: HashMap<u32, (String, CameraControlValue)>,
-}
-
-impl CameraControls {
-  fn from_libcamera(control_list: Vec<ffi::ControlPair>) -> Self {
-    let mut controls = CameraControls::default();
-    for control in control_list {
-      let name = unsafe { control.id.get().get_name() };
-      let did_name_match = match name.as_ref() {
-        "AeEnable" => (&control)
-          .try_into()
-          .map(|control| controls.ae_enable = Some(control))
-          .is_ok(),
-        "AeMeteringMode" => (&control)
-          .try_into()
-          .map(|control| controls.ae_metering_mode = Some(control))
-          .is_ok(),
-        "AeConstraintMode" => (&control)
-          .try_into()
-          .map(|control| controls.ae_constraint_mode = Some(control))
-          .is_ok(),
-        "AeExposureMode" => (&control)
-          .try_into()
-          .map(|control| controls.ae_exposure_mode = Some(control))
-          .is_ok(),
-        "ExposureValue" => (&control)
-          .try_into()
-          .map(|control| controls.exposure_value = Some(control))
-          .is_ok(),
-        "ExposureTime" => (&control)
-          .try_into()
-          .map(|control| controls.exposure_time = Some(control))
-          .is_ok(),
-        "AnalogueGain" => (&control)
-          .try_into()
-          .map(|control| controls.analogue_gain = Some(control))
-          .is_ok(),
-        "Brightness" => (&control)
-          .try_into()
-          .map(|control| controls.brightness = Some(control))
-          .is_ok(),
-        "Contract" => (&control)
-          .try_into()
-          .map(|control| controls.contract = Some(control))
-          .is_ok(),
-        "AwbEnable" => (&control)
-          .try_into()
-          .map(|control| controls.awb_enable = Some(control))
-          .is_ok(),
-        "AwbMode" => (&control)
-          .try_into()
-          .map(|control| controls.awb_mode = Some(control))
-          .is_ok(),
-        "ColourGains" => (&control)
-          .try_into()
-          .map(|control| controls.colour_gains = Some(control))
-          .is_ok(),
-        "Saturation" => (&control)
-          .try_into()
-          .map(|control| controls.saturation = Some(control))
-          .is_ok(),
-        "Sharpness" => (&control)
-          .try_into()
-          .map(|control| controls.sharpness = Some(control))
-          .is_ok(),
-        "ColourCorrectionMatrix" => (&control)
-          .try_into()
-          .map(|control| controls.colour_correction_matrix = Some(control))
-          .is_ok(),
-        // "ScalerCrop" => (&control).try_into().map(|control| controls.scaler_crop = Some(control)).is_ok(),
-        "FrameDurationLimits" => (&control)
-          .try_into()
-          .map(|control| controls.frame_duration_limits = Some(control))
-          .is_ok(),
-        "NoiseReductionMode" => (&control)
-          .try_into()
-          .map(|control| controls.noise_reduction_mode = Some(control))
-          .is_ok(),
-        _ => false,
-      };
-      if !did_name_match {
-        if let Some(control_value) = match unsafe { control.id.get().get_type() } {
-          ffi::CameraControlType::None => Some(CameraControlValue::None),
-          ffi::CameraControlType::Bool => (&control).try_into().ok().map(CameraControlValue::Bool),
-          ffi::CameraControlType::Byte => (&control).try_into().ok().map(CameraControlValue::Byte),
-          ffi::CameraControlType::Integer32 => (&control)
-            .try_into()
-            .ok()
-            .map(CameraControlValue::Integer32),
-          ffi::CameraControlType::Integer64 => (&control)
-            .try_into()
-            .ok()
-            .map(CameraControlValue::Integer64),
-          ffi::CameraControlType::Float => {
-            (&control).try_into().ok().map(CameraControlValue::Float)
-          }
-          _ => None,
-          // ffi::CameraControlType::String => (&control).try_into().ok().map(|control| CameraControlValue::String(control)),
-          // ffi::CameraControlType::Rectangle => (&control).try_into().ok().map(|control| CameraControlValue::Rectangle(control)),
-          // ffi::CameraControlType::Size => (&control).try_into().ok().map(|control| CameraControlValue::Size(control)),
-        } {
-          controls
-            .others
-            .insert(unsafe { control.id.get().get_id() }, (name, control_value));
-        } else {
-          eprintln!("Camera control with conflicting types: {name}");
-        }
-      }
-    }
-    controls
-  }
-  fn get_libcamera(&self) -> Vec<(u32, ffi::BindControlValue)> {
-    let mut controls = Vec::new();
-    if let Some(ae_enable) = &self.ae_enable {
-      controls.push((1, unsafe {
-        ffi::new_control_value_bool(ae_enable.get_value())
-      }));
-    }
-    if let Some(ae_metering_mode) = &self.ae_metering_mode {
-      controls.push((3, unsafe {
-        ffi::new_control_value_i32(ae_metering_mode.get_value())
-      }));
-    }
-    if let Some(ae_constraint_mode) = &self.ae_constraint_mode {
-      controls.push((4, unsafe {
-        ffi::new_control_value_i32(ae_constraint_mode.get_value())
-      }));
-    }
-    if let Some(ae_exposure_mode) = &self.ae_exposure_mode {
-      controls.push((5, unsafe {
-        ffi::new_control_value_i32(ae_exposure_mode.get_value())
-      }));
-    }
-    if let Some(exposure_value) = &self.exposure_value {
-      controls.push((6, unsafe {
-        ffi::new_control_value_f32(exposure_value.get_value())
-      }));
-    }
-    if let Some(exposure_time) = &self.exposure_time {
-      controls.push((7, unsafe {
-        ffi::new_control_value_i32(exposure_time.get_value())
-      }));
-    }
-    if let Some(analogue_gain) = &self.analogue_gain {
-      controls.push((8, unsafe {
-        ffi::new_control_value_f32(analogue_gain.get_value())
-      }));
-    }
-    if let Some(brightness) = &self.brightness {
-      controls.push((9, unsafe {
-        ffi::new_control_value_f32(brightness.get_value())
-      }));
-    }
-    if let Some(contract) = &self.contract {
-      controls.push((10, unsafe {
-        ffi::new_control_value_f32(contract.get_value())
-      }));
-    }
-    if let Some(awb_enable) = &self.awb_enable {
-      controls.push((12, unsafe {
-        ffi::new_control_value_bool(awb_enable.get_value())
-      }));
-    }
-    if let Some(awb_mode) = &self.awb_mode {
-      controls.push((13, unsafe {
-        ffi::new_control_value_i32(awb_mode.get_value())
-      }));
-    }
-    if let Some(colour_gains) = &self.colour_gains {
-      controls.push((15, unsafe {
-        ffi::new_control_value_f32(colour_gains.get_value())
-      }));
-    }
-    if let Some(saturation) = &self.saturation {
-      controls.push((17, unsafe {
-        ffi::new_control_value_f32(saturation.get_value())
-      }));
-    }
-    if let Some(sharpness) = &self.sharpness {
-      controls.push((19, unsafe {
-        ffi::new_control_value_f32(sharpness.get_value())
-      }));
-    }
-    if let Some(colour_correction_matrix) = &self.colour_correction_matrix {
-      controls.push((21, unsafe {
-        ffi::new_control_value_f32(colour_correction_matrix.get_value())
-      }));
-    }
-    // if let Some(scaler_crop) = &self.scaler_crop {
-    //   controls.push((22, unsafe { ffi::new_control_value_rectangle(scaler_crop.get_value()) }));
-    // }
-    if let Some(frame_duration_limits) = &self.frame_duration_limits {
-      controls.push((25, unsafe {
-        ffi::new_control_value_i64(frame_duration_limits.get_value())
-      }));
-    }
-    if let Some(noise_reduction_mode) = &self.noise_reduction_mode {
-      controls.push((39, unsafe {
-        ffi::new_control_value_i32(noise_reduction_mode.get_value())
-      }));
-    }
-    for (id, (_name, value)) in &self.others {
-      if let Some(value) = match value {
-        CameraControlValue::None => None,
-        CameraControlValue::Bool(value) => {
-          Some(unsafe { ffi::new_control_value_bool(value.get_value()) })
-        }
-        CameraControlValue::Byte(value) => {
-          Some(unsafe { ffi::new_control_value_u8(value.get_value()) })
-        }
-        CameraControlValue::Integer32(value) => {
-          Some(unsafe { ffi::new_control_value_i32(value.get_value()) })
-        }
-        CameraControlValue::Integer64(value) => {
-          Some(unsafe { ffi::new_control_value_i64(value.get_value()) })
-        }
-        CameraControlValue::Float(value) => {
-          Some(unsafe { ffi::new_control_value_f32(value.get_value()) })
-        }
-        // CameraControlValue::String(value) => Some(unsafe { ffi::new_control_value_string(value.get_value()) }),
-        // CameraControlValue::Rectangle(value) => Some(unsafe { ffi::new_control_value_rectangle(value.get_value()) }),
-        // CameraControlValue::Size(value) => Some(unsafe { ffi::new_control_value_size(value.get_value()) }),
-      } {
-        controls.push((*id, value));
-      }
-    }
-    controls
-  }
+struct RequestInfo {
+  stream_id: usize,
+  buffer_id: usize,
+  timestamp: Instant,
 }
 
 /// Represents a camera
@@ -482,9 +112,11 @@ pub struct Camera<'a> {
   streams: Vec<CameraStream>,
   started: bool,
   controls: CameraControls,
+  next_request_id: u64,
+  request_infos: HashMap<u64, RequestInfo>,
 }
 
-impl fmt::Debug for Camera<'_> {
+impl Debug for Camera<'_> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("Camera")
       .field("name", &self.name)
@@ -492,6 +124,7 @@ impl fmt::Debug for Camera<'_> {
       .field("streams", &self.streams)
       .field("started", &self.started)
       .field("controls", &self.controls)
+      .field("next_request_id", &self.next_request_id)
       .finish_non_exhaustive()
   }
 }
@@ -560,20 +193,24 @@ impl Camera<'_> {
       .ok_or(LibcameraError::InvalidConfig)?
       .streams()
     {
+      println!("Stream config: {stream_config:?}");
       let mut stream = unsafe { stream_config.get_inner().get().stream() };
       // Allocate buffers
       let _buffer_count = unsafe { self.allocator.get_mut().allocate(stream.get_mut()) };
-      let stream_id = self.streams.len() as u32;
+      let (width, height) = stream_config.get_size();
       let mut camera_stream = CameraStream {
-        stream_id,
+        pixel_format: stream_config.get_pixel_format(),
+        width,
+        height,
         stream,
         next_buffer: 0,
         buffers: Vec::new(),
       };
+      println!("Camera stream: {camera_stream:?}");
       // Map memory for buffers
       for mut buffer in unsafe { self.allocator.get().buffers(camera_stream.stream.get_mut()) } {
-        let buffer_id = camera_stream.buffers.len() as u32;
-        unsafe { buffer.get_mut().set_cookie(buffer_id) };
+        let buffer_id = camera_stream.buffers.len();
+        unsafe { buffer.get_mut().set_cookie(buffer_id as u32) };
         let mut planes = Vec::new();
         let mut mapped_buffers: HashMap<i32, (Option<ffi::BindMemoryBuffer>, usize, usize)> =
           HashMap::new();
@@ -611,7 +248,6 @@ impl Camera<'_> {
         }
 
         camera_stream.buffers.push(CameraBuffer {
-          buffer_id,
           request: None,
           buffer,
           planes,
@@ -623,12 +259,17 @@ impl Camera<'_> {
     Ok(true)
   }
   /// Start the process to capture an image from the camera.
-  pub fn capture_next_picture(&mut self, stream: usize) -> Result<()> {
-    let mut stream = &mut self.streams[stream];
+  ///
+  /// # Returns
+  /// On success returns the `serial_id` of the request, which can be used to match with the correct request complete event.
+  ///
+  /// # Errors
+  /// Errors if there are no buffers currently available (all buffers are in-use, if this happens take pictures slower!)
+  pub fn capture_next_picture(&mut self, stream_id: usize) -> Result<u64> {
+    let mut stream = &mut self.streams[stream_id];
     let buffer = &mut stream.buffers[stream.next_buffer];
     if buffer.request.is_none() {
-      let request_id = buffer.buffer_id as u64 | ((stream.stream_id as u64) << 32);
-      println!("Queuing request with id {}", request_id);
+      let request_id = self.next_request_id;
       let mut req = unsafe { self.inner.get_mut().create_request(request_id) }?;
       unsafe {
         req
@@ -638,11 +279,21 @@ impl Camera<'_> {
       for (control_id, control_value) in self.controls.get_libcamera() {
         unsafe { req.get_mut().set_control(control_id, control_value.get()) };
       }
+      let timestamp = Instant::now();
       unsafe { self.inner.get_mut().queue_request(req.get_mut()) }?;
+      self.request_infos.insert(
+        request_id,
+        RequestInfo {
+          stream_id,
+          buffer_id: stream.next_buffer,
+          timestamp,
+        },
+      );
+      self.next_request_id += 1;
       buffer.request = Some(req);
       stream.next_buffer += 1;
       stream.next_buffer %= stream.buffers.len();
-      Ok(())
+      Ok(request_id)
     } else {
       Err(LibcameraError::NoBufferReady)
     }
@@ -655,21 +306,30 @@ impl Camera<'_> {
         .flat_map(|event| match event.message_type {
           ffi::CameraMessageType::RequestComplete => {
             println!("Ev: {event:?}");
-            let stream_id = ((event.request_cookie >> 32) & 0xFFFFFFFF) as usize;
-            let buffer_id = (event.request_cookie & 0xFFFFFFFF) as usize;
+            let request_id = event.request_cookie;
+            let request_info = self.request_infos.remove(&request_id)?;
             println!(
               "Request completed on stream {}, buffer {}.",
-              stream_id, buffer_id
+              request_info.stream_id, request_info.buffer_id
             );
-            let buffer = &mut self.streams[stream_id].buffers[buffer_id];
+            let stream = &mut self.streams[request_info.stream_id];
+            let buffer = &mut stream.buffers[request_info.buffer_id];
             buffer.request = None;
-            Some(CameraEvent::RequestComplete(
-              buffer
-                .planes
-                .iter()
-                .map(|plane| unsafe { plane.get().read_to_vec() })
-                .collect(),
-            ))
+            println!("Pixel format: {:?}", stream.pixel_format);
+            Some(CameraEvent::RequestComplete {
+              serial_id: request_id,
+              timestamp: request_info.timestamp,
+              image: RawCameraImage {
+                width: stream.width as usize,
+                height: stream.height as usize,
+                pixel_format: stream.pixel_format,
+                planes: buffer
+                  .planes
+                  .iter()
+                  .map(|plane| unsafe { plane.get().read_to_vec() })
+                  .collect(),
+              },
+            })
           }
           _ => None,
         })
@@ -686,11 +346,57 @@ impl Drop for Camera<'_> {
   }
 }
 
+/// Represents raw image data fetched from the camera
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RawCameraImage {
+  pub pixel_format: Option<PixelFormat>,
+  pub width: usize,
+  pub height: usize,
+  pub planes: Vec<Vec<u8>>,
+}
+
+impl RawCameraImage {
+  /// Attempts to decode this camera image.
+  ///
+  /// Currently only supports Bgr, Rgb, Yuyv, and Yuv420 formats, and Mjpeg with the `image` feature.
+  pub fn try_decode(self) -> Option<MultiImage> {
+    match (self.pixel_format, self.planes.as_slice()) {
+      (Some(PixelFormat::Bgr888), [data]) => {
+        image::BgrImage::from_planes(self.width, self.height, [data.to_owned()])
+          .map(MultiImage::Bgr)
+      }
+      (Some(PixelFormat::Rgb888), [data]) => {
+        image::RgbImage::from_planes(self.width, self.height, [data.to_owned()])
+          .map(MultiImage::Rgb)
+      }
+      (Some(PixelFormat::Yuyv), [data]) => {
+        image::YuyvImage::from_planes(self.width, self.height, [data.to_owned()])
+          .map(MultiImage::Yuyv)
+      }
+      (Some(PixelFormat::Yuv420), [y, u, v]) => image::Yuv420Image::from_planes(
+        self.width,
+        self.height,
+        [y.to_owned(), u.to_owned(), v.to_owned()],
+      )
+      .map(MultiImage::Yuv420),
+      #[cfg(feature = "image")]
+      (Some(PixelFormat::Mjpeg), [data]) => {
+        image::RgbImage::decode_jpeg(data).ok().map(MultiImage::Rgb)
+      }
+      _ => None,
+    }
+  }
+}
+
 /// Represents an event from the camera
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CameraEvent {
   /// Triggered when a capture request has completed, containing a vec of the resulting image planes.
-  RequestComplete(Vec<Vec<u8>>),
+  RequestComplete {
+    serial_id: u64,
+    timestamp: Instant,
+    image: RawCameraImage,
+  },
 }
 
 /// Represents the result of applying a configuration to a camera.

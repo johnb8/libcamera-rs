@@ -136,7 +136,7 @@ fn test_unsafe_camera() {
   println!("Events: {:?}", unsafe { camera.get_mut().poll_events() });
 
   for (i, plane) in planes.iter_mut().enumerate() {
-    std::fs::write(&format!("plane_{i}.jpeg"), unsafe {
+    std::fs::write(&format!("plane_{i}.bin"), unsafe {
       plane.get().read_to_vec()
     })
     .unwrap();

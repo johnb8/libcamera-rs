@@ -144,6 +144,7 @@ public:
   explicit PixelFormat(libcamera::PixelFormat inner_) : inner(inner_) {}
   libcamera::PixelFormat into_inner();
 
+  DefaultPixelFormat as_default_pixel_format() const;
   [[nodiscard]] rust::String raw_to_string() const;
 };
 

@@ -263,8 +263,10 @@ pub mod ffi {
     pub unsafe fn get_buffer_count(self: &StreamConfiguration) -> usize;
     pub unsafe fn raw_to_string(self: &StreamConfiguration) -> String;
 
-    type PixelFormat;
     pub unsafe fn get_default_pixel_format(default_format: DefaultPixelFormat) -> BindPixelFormat;
+
+    type PixelFormat;
+    pub unsafe fn as_default_pixel_format(self: &PixelFormat) -> Result<DefaultPixelFormat>;
     pub unsafe fn raw_to_string(self: &PixelFormat) -> String;
 
     type Size;
