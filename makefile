@@ -12,4 +12,5 @@ fmt: format
 format:
 	clang-format -style=file -i libcamera-bridge/*
 	cargo fmt
+	cargo clippy --fix
 	clang-tidy --format-style=file --fix --fix-errors --fix-notes libcamera-bridge/*.cpp -- -I/usr/local/include/libcamera -I./target/cxxbridge -I.. --std=c++17
