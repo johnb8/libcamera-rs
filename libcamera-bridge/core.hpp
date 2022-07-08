@@ -202,8 +202,8 @@ public:
   libcamera::FrameBuffer *into_ptr();
 
   [[nodiscard]] rust::Vec<BindFrameBufferPlane> planes() const;
-  void set_cookie(uint32_t cookie);
-  uint32_t get_cookie() const;
+  void set_cookie(uint64_t cookie);
+  uint64_t get_cookie() const;
 };
 
 size_t fd_len(int fd);

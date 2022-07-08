@@ -53,3 +53,7 @@ fn main() {
 ```
 
 Most functions should be well enough documented with rustdoc.
+
+# TODO
+
+Currently, this *will* segfault if a thread containing a reference to a `Camera` panics.

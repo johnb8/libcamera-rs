@@ -219,7 +219,7 @@ impl Camera<'_> {
       // Map memory for buffers
       for mut buffer in unsafe { self.allocator.get().buffers(camera_stream.stream.get_mut()) } {
         let buffer_id = camera_stream.buffers.len();
-        unsafe { buffer.get_mut().set_cookie(buffer_id as u32) };
+        unsafe { buffer.get_mut().set_cookie(buffer_id as u64) };
         let mut planes = Vec::new();
         let mut mapped_buffers: HashMap<i32, (Option<ffi::BindMemoryBuffer>, usize, usize)> =
           HashMap::new();

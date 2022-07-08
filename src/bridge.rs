@@ -186,7 +186,7 @@ pub mod ffi {
   struct CameraMessage {
     message_type: CameraMessageType,
     request_cookie: u64,
-    buffer_cookie: u32,
+    buffer_cookie: u64,
   }
 
   #[repr(i32)]
@@ -303,8 +303,8 @@ pub mod ffi {
 
     type FrameBuffer;
     pub unsafe fn planes(self: &FrameBuffer) -> Vec<BindFrameBufferPlane>;
-    pub unsafe fn set_cookie(self: Pin<&mut FrameBuffer>, cookie: u32);
-    pub unsafe fn get_cookie(self: &FrameBuffer) -> u32;
+    pub unsafe fn set_cookie(self: Pin<&mut FrameBuffer>, cookie: u64);
+    pub unsafe fn get_cookie(self: &FrameBuffer) -> u64;
 
     type FrameBufferPlane;
     pub unsafe fn get_fd(self: &FrameBufferPlane) -> i32;
