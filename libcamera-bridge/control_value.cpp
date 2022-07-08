@@ -9,21 +9,21 @@ BindControlValue new_control_value_bool(bool value) {
   return control_value;
 }
 
-BindControlValue new_control_value_u8(unsigned char value) {
+BindControlValue new_control_value_u8(uint8_t value) {
   BindControlValue control_value{
       .inner = std::make_unique<ControlValue>(libcamera::ControlValue(value)),
   };
   return control_value;
 }
 
-BindControlValue new_control_value_i32(int value) {
+BindControlValue new_control_value_i32(int32_t value) {
   BindControlValue control_value{
       .inner = std::make_unique<ControlValue>(libcamera::ControlValue(value)),
   };
   return control_value;
 }
 
-BindControlValue new_control_value_i64(long int value) {
+BindControlValue new_control_value_i64(int64_t value) {
   BindControlValue control_value{
       .inner = std::make_unique<ControlValue>(libcamera::ControlValue(value)),
   };

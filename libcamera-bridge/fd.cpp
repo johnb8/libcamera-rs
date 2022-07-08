@@ -21,6 +21,6 @@ BindMemoryBuffer mmap_plane(int fd, size_t len) {
     throw error_from_code(errno);
   }
   BindMemoryBuffer buffer{.inner = std::make_unique<MemoryBuffer>(
-                              static_cast<unsigned char *>(address), len)};
+                              static_cast<uint8_t *>(address), len)};
   return buffer;
 }
