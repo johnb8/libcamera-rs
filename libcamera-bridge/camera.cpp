@@ -84,7 +84,7 @@ void Camera::configure(CameraConfiguration &conf) {
   }
 }
 
-BindRequest Camera::create_request(unsigned long cookie) {
+BindRequest Camera::create_request(uint64_t cookie) {
   VALIDATE_POINTERS()
 
   std::unique_ptr<libcamera::Request> req = this->inner->createRequest(cookie);
@@ -163,7 +163,7 @@ rust::Vec<CameraMessage> Camera::poll_events() {
 }
 
 rust::Vec<CameraMessage>
-Camera::poll_events_with_cookie(unsigned long request_cookie) {
+Camera::poll_events_with_cookie(uint64_t request_cookie) {
   rust::Vec<CameraMessage> messages;
   while (!this->message_queue.empty()) {
     if (this->message_queue.front().request_cookie == request_cookie) {

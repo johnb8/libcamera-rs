@@ -56,25 +56,25 @@ bool ControlValue::get_bool() const {
   return this->inner.get<bool>();
 }
 
-unsigned char ControlValue::get_u8() const {
+uint8_t ControlValue::get_u8() const {
   if (this->inner.type() != libcamera::ControlType::ControlTypeByte) {
     throw std::runtime_error("Bad type! Expected Byte.");
   }
-  return this->inner.get<unsigned char>();
+  return this->inner.get<uint8_t>();
 }
 
-int ControlValue::get_i32() const {
+int32_t ControlValue::get_i32() const {
   if (this->inner.type() != libcamera::ControlType::ControlTypeInteger32) {
     throw std::runtime_error("Bad type! Expected I32.");
   }
-  return this->inner.get<int>();
+  return this->inner.get<int32_t>();
 }
 
-long ControlValue::get_i64() const {
+int64_t ControlValue::get_i64() const {
   if (this->inner.type() != libcamera::ControlType::ControlTypeInteger64) {
     throw std::runtime_error("Bad type! Expected I64.");
   }
-  return this->inner.get<long>();
+  return this->inner.get<int64_t>();
 }
 
 float ControlValue::get_f32() const {

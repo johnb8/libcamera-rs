@@ -8,7 +8,7 @@ rust::String ControlId::get_name() const {
   return this->inner->name();
 }
 
-unsigned int ControlId::get_id() const {
+uint32_t ControlId::get_id() const {
   VALIDATE_POINTERS()
 
   return this->inner->id();

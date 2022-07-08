@@ -22,13 +22,13 @@ rust::Vec<BindFrameBufferPlane> FrameBuffer::planes() const {
   return vec;
 }
 
-void FrameBuffer::set_cookie(unsigned int cookie) {
+void FrameBuffer::set_cookie(uint32_t cookie) {
   VALIDATE_POINTERS()
 
   this->inner->setCookie(cookie);
 }
 
-unsigned int FrameBuffer::get_cookie() const {
+uint32_t FrameBuffer::get_cookie() const {
   VALIDATE_POINTERS()
 
   return this->inner->cookie();

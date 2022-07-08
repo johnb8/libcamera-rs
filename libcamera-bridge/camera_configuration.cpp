@@ -14,7 +14,7 @@ size_t CameraConfiguration::size() const {
   return this->inner->size();
 }
 
-BindStreamConfiguration CameraConfiguration::at(unsigned int idx) {
+BindStreamConfiguration CameraConfiguration::at(uint32_t idx) {
   VALIDATE_POINTERS()
 
   libcamera::StreamConfiguration *str = &this->inner->at(idx);

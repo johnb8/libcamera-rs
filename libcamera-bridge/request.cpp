@@ -19,7 +19,7 @@ libcamera::Request *Request::into_ptr() {
 
 #include <iostream>
 
-BindControlValue Request::get_control(unsigned int id) const {
+BindControlValue Request::get_control(uint32_t id) const {
   VALIDATE_POINTERS()
 
   libcamera::ControlList &controls = this->inner->controls();
@@ -33,7 +33,7 @@ BindControlValue Request::get_control(unsigned int id) const {
   return control_value;
 }
 
-void Request::set_control(unsigned int id, const ControlValue &value) {
+void Request::set_control(uint32_t id, const ControlValue &value) {
   VALIDATE_POINTERS()
 
   libcamera::ControlList &controls = this->inner->controls();

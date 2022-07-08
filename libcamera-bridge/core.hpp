@@ -80,27 +80,26 @@ private:
   std::mutex message_mutex;
   std::queue<CameraMessage> message_queue;
 
-  std::unordered_map<unsigned int, const libcamera::ControlId *> controls_by_id;
+  std::unordered_map<uint32_t, const libcamera::ControlId *> controls_by_id;
 
 public:
   explicit Camera(std::shared_ptr<libcamera::Camera> inner_);
   ~Camera();
   std::shared_ptr<libcamera::Camera> into_shared();
-  const libcamera::ControlId *get_control_by_id(unsigned int id) const;
+  const libcamera::ControlId *get_control_by_id(uint32_t id) const;
 
   void acquire();
   void release();
   BindCameraConfiguration generate_configuration(
       rust::Slice<const libcamera::StreamRole> /*roles*/);
   void configure(CameraConfiguration &conf);
-  BindRequest create_request(unsigned long cookie);
+  BindRequest create_request(uint64_t cookie);
   void queue_request(Request &req);
   void start();
   void stop();
   rust::Vec<ControlPair> get_controls() const;
   rust::Vec<CameraMessage> poll_events();
-  rust::Vec<CameraMessage>
-  poll_events_with_cookie(unsigned long request_cookie);
+  rust::Vec<CameraMessage> poll_events_with_cookie(uint64_t request_cookie);
 };
 
 struct CameraConfiguration {
@@ -114,7 +113,7 @@ public:
   libcamera::CameraConfiguration *into_ptr();
 
   size_t size() const;
-  BindStreamConfiguration at(unsigned int idx);
+  BindStreamConfiguration at(uint32_t idx);
   CameraConfigurationStatus validate();
 };
 
@@ -150,7 +149,7 @@ public:
   [[nodiscard]] rust::String raw_to_string() const;
 };
 
-BindSize new_size(unsigned int width, unsigned int height);
+BindSize new_size(uint32_t width, uint32_t height);
 
 struct Size {
 private:
@@ -160,10 +159,10 @@ public:
   explicit Size(libcamera::Size inner_) : inner(inner_) {}
   libcamera::Size into_inner();
 
-  void set_width(unsigned int width);
-  [[nodiscard]] unsigned int get_width() const;
-  void set_height(unsigned int height);
-  [[nodiscard]] unsigned int get_height() const;
+  void set_width(uint32_t width);
+  [[nodiscard]] uint32_t get_width() const;
+  void set_height(uint32_t height);
+  [[nodiscard]] uint32_t get_height() const;
 
   [[nodiscard]] rust::String raw_to_string() const;
 };
@@ -203,8 +202,8 @@ public:
   libcamera::FrameBuffer *into_ptr();
 
   [[nodiscard]] rust::Vec<BindFrameBufferPlane> planes() const;
-  void set_cookie(unsigned int cookie);
-  unsigned int get_cookie() const;
+  void set_cookie(uint32_t cookie);
+  uint32_t get_cookie() const;
 };
 
 size_t fd_len(int fd);
@@ -228,15 +227,15 @@ BindMemoryBuffer mmap_plane(int fd, size_t len);
 
 struct MemoryBuffer {
 private:
-  const unsigned char *pointer;
+  const uint8_t *pointer;
   size_t length;
 
 public:
-  MemoryBuffer(const unsigned char *pointer_, size_t length_)
+  MemoryBuffer(const uint8_t *pointer_, size_t length_)
       : pointer(pointer_), length(length_) {}
 
   BindMemoryBuffer sub_buffer(size_t offset, size_t length);
-  [[nodiscard]] rust::Vec<unsigned char> read_to_vec() const;
+  [[nodiscard]] rust::Vec<uint8_t> read_to_vec() const;
 };
 
 struct Request {
@@ -249,8 +248,8 @@ public:
   libcamera::Request *into_ptr();
 
   void add_buffer(const Stream &stream, FrameBuffer &buffer);
-  BindControlValue get_control(unsigned int id) const;
-  void set_control(unsigned int id, const ControlValue &value);
+  BindControlValue get_control(uint32_t id) const;
+  void set_control(uint32_t id, const ControlValue &value);
   [[nodiscard]] rust::String raw_to_string() const;
 };
 
@@ -262,14 +261,14 @@ public:
   explicit ControlId(const libcamera::ControlId *inner_) : inner{inner_} {}
 
   rust::String get_name() const;
-  unsigned int get_id() const;
+  uint32_t get_id() const;
   CameraControlType get_type() const;
 };
 
 BindControlValue new_control_value_bool(bool value);
-BindControlValue new_control_value_u8(unsigned char value);
-BindControlValue new_control_value_i32(int value);
-BindControlValue new_control_value_i64(long int value);
+BindControlValue new_control_value_u8(uint8_t value);
+BindControlValue new_control_value_i32(int32_t value);
+BindControlValue new_control_value_i64(int64_t value);
 BindControlValue new_control_value_f32(float value);
 BindControlValue new_control_value_string(rust::String value);
 
@@ -282,9 +281,9 @@ public:
   const libcamera::ControlValue &get_inner() const;
 
   bool get_bool() const;
-  unsigned char get_u8() const;
-  int get_i32() const;
-  long get_i64() const;
+  uint8_t get_u8() const;
+  int32_t get_i32() const;
+  int64_t get_i64() const;
   float get_f32() const;
 
   [[nodiscard]] rust::String raw_to_string() const;
