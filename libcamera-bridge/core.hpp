@@ -99,6 +99,8 @@ public:
   void stop();
   rust::Vec<ControlPair> get_controls() const;
   rust::Vec<CameraMessage> poll_events();
+  rust::Vec<CameraMessage>
+  poll_events_with_cookie(unsigned long request_cookie);
 };
 
 struct CameraConfiguration {

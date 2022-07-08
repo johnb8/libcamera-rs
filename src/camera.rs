@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::{self, Debug};
 use std::marker::PhantomData;
+use std::sync::RwLock;
 use std::time::Instant;
 
 use crate::bridge::{ffi, GetInner};
@@ -13,8 +14,11 @@ pub use ffi::StreamRole;
 
 /// Manages cameras
 pub struct CameraManager {
-  inner: ffi::BindCameraManager,
+  inner: RwLock<ffi::BindCameraManager>,
 }
+
+unsafe impl Send for CameraManager {}
+unsafe impl Sync for CameraManager {}
 
 impl Debug for CameraManager {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -28,15 +32,17 @@ impl CameraManager {
     let mut cm = unsafe { ffi::make_camera_manager() };
     // The primary safety concern for the CM is that it must be started once before calling all functions.
     unsafe { cm.get_mut().start() }?;
-    Ok(CameraManager { inner: cm })
+    Ok(CameraManager {
+      inner: RwLock::new(cm),
+    })
   }
   /// Get a list of all attached cameras
   pub fn get_camera_names(&self) -> Vec<String> {
-    unsafe { self.inner.get().get_camera_ids() }
+    unsafe { self.inner.read().unwrap().get().get_camera_ids() }
   }
   /// Get a camera with a given name
-  pub fn get_camera_by_name(&mut self, name: &str) -> Result<Camera<'_>> {
-    let mut cam = unsafe { self.inner.get_mut().get_camera_by_id(name) }?;
+  pub fn get_camera_by_name(&self, name: &str) -> Result<Camera<'_>> {
+    let mut cam = unsafe { self.inner.write().unwrap().get_mut().get_camera_by_id(name) }?;
     unsafe { cam.get_mut().acquire() }?;
     let allocator = unsafe { ffi::make_frame_buffer_allocator(cam.get_mut()) };
     let controls = CameraControls::from_libcamera(unsafe { cam.get().get_controls() });
@@ -57,7 +63,7 @@ impl CameraManager {
 
 impl Drop for CameraManager {
   fn drop(&mut self) {
-    unsafe { self.inner.get_mut().stop() };
+    unsafe { self.inner.write().unwrap().get_mut().stop() };
   }
 }
 
@@ -115,6 +121,9 @@ pub struct Camera<'a> {
   next_request_id: u64,
   request_infos: HashMap<u64, RequestInfo>,
 }
+
+unsafe impl Send for Camera<'_> {}
+unsafe impl Sync for Camera<'_> {}
 
 impl Debug for Camera<'_> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -301,8 +310,12 @@ impl Camera<'_> {
   /// Poll events from the camera.
   ///
   /// The results should be in order of when the camera sent them, but not neccesarily in order of when they were initially queued. Make sure to use `serial_id`, or the event `timestamp` to keep track of that if you need to.
-  pub fn poll_events(&mut self) -> Result<Vec<CameraEvent>> {
-    let events = unsafe { self.inner.get_mut().poll_events() };
+  pub fn poll_events(&mut self, match_id: Option<u64>) -> Result<Vec<CameraEvent>> {
+    let events = if let Some(match_id) = match_id {
+      unsafe { self.inner.get_mut().poll_events_with_cookie(match_id) }
+    } else {
+      unsafe { self.inner.get_mut().poll_events() }
+    };
     Ok(
       events
         .into_iter()

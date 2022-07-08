@@ -161,3 +161,15 @@ rust::Vec<CameraMessage> Camera::poll_events() {
   }
   return messages;
 }
+
+rust::Vec<CameraMessage>
+Camera::poll_events_with_cookie(unsigned long request_cookie) {
+  rust::Vec<CameraMessage> messages;
+  while (!this->message_queue.empty()) {
+    if (this->message_queue.front().request_cookie == request_cookie) {
+      messages.push_back(this->message_queue.front());
+      message_queue.pop();
+    }
+  }
+  return messages;
+}

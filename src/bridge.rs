@@ -242,6 +242,10 @@ pub mod ffi {
     pub unsafe fn stop(self: Pin<&mut Camera>) -> Result<()>;
     pub unsafe fn get_controls(self: &Camera) -> Vec<ControlPair>;
     pub unsafe fn poll_events(self: Pin<&mut Camera>) -> Vec<CameraMessage>;
+    pub unsafe fn poll_events_with_cookie(
+      self: Pin<&mut Camera>,
+      request_cookie: u64,
+    ) -> Vec<CameraMessage>;
 
     type CameraConfiguration;
     pub unsafe fn size(self: &CameraConfiguration) -> usize;
