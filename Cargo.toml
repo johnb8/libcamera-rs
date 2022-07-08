@@ -1,11 +1,17 @@
 [package]
 name = "libcamera-rs"
+description = "Libcamera bindings for rust."
+authors = ["John Brandt <johnb0@outlook.com>", "Ben Heard <benpheard@gmail.com>"]
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 cxx = "1.0"
+thiserror = "1"
+image = { version = "0.24", optional = true }
 
 [build-dependencies]
 cxx-build = "1.0"
 
+[features]
+default = [ "image" ]
