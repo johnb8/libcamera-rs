@@ -53,6 +53,7 @@ impl CameraManager {
       inner: cam,
       allocator,
       streams: Vec::new(),
+      configured: false,
       started: false,
       controls,
       next_request_id: 0,
@@ -116,6 +117,7 @@ pub struct Camera<'a> {
   inner: ffi::BindCamera,
   allocator: ffi::BindFrameBufferAllocator,
   streams: Vec<CameraStream>,
+  configured: bool,
   started: bool,
   controls: CameraControls,
   next_request_id: u64,
@@ -141,6 +143,7 @@ impl Debug for Camera<'_> {
 impl Camera<'_> {
   /// Generate a configuration for this camera using the given set of stream roles to generate an corresponding set of streams.
   pub fn generate_config(&mut self, caps: &[StreamRole]) -> Result<&mut CameraConfig> {
+    self.configured = false;
     let config = unsafe { self.inner.get_mut().generate_configuration(caps) }?;
     self.config = Some(CameraConfig::wrap_inner(config)?);
     self.config.as_mut().ok_or(LibcameraError::InvalidConfig)
@@ -155,6 +158,7 @@ impl Camera<'_> {
         _ => (false, Err(LibcameraError::InvalidConfig)),
       };
       if set {
+        self.configured = true;
         unsafe { self.inner.get_mut().configure(config.get_inner().get_mut()) }?;
       }
       result
@@ -183,6 +187,9 @@ impl Camera<'_> {
   /// # Panics
   /// This will panic if the buffer sizes produced by libcamera extend past the end of the actual camera memory buffer.
   pub fn start_stream(&mut self) -> Result<bool> {
+    if !self.configured {
+      return Err(LibcameraError::InvalidConfig);
+    }
     if self.started {
       // Do nothing if the camera was already started.
       return Ok(false);
@@ -356,6 +363,7 @@ impl Camera<'_> {
 
 impl Drop for Camera<'_> {
   fn drop(&mut self) {
+    eprintln!("Dropping inner camera.");
     self.streams = Vec::new();
     unsafe { self.inner.get_mut().stop() }.unwrap();
     unsafe { self.inner.get_mut().release() }.unwrap();

@@ -15,6 +15,8 @@ fn main() {
   // Attempt to assign the stream's pixel format and size.
   stream.set_pixel_format(PixelFormat::Mjpeg);
   stream.set_size(640, 480);
+  // Apply the configuration.
+  cam.apply_config().unwrap();
   // Start the camera stream.
   cam.start_stream().unwrap();
   // Take 10 pictures
@@ -29,7 +31,7 @@ fn main() {
     // Wait for a bit.
     std::thread::sleep(std::time::Duration::from_millis(200));
     // Poll events (containing the images)
-    let events = cam.poll_events().unwrap();
+    let events = cam.poll_events(None).unwrap();
     for event in events {
       match event {
         CameraEvent::RequestComplete {
@@ -46,6 +48,7 @@ fn main() {
           let filename = format!("image_{serial_id}.png");
           std::fs::write(&filename, rgb_image).unwrap();
         }
+        _ => todo!()
       }
     }
   }

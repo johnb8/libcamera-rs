@@ -3,7 +3,7 @@ use crate::prelude::{CameraEvent, CameraManager, PixelFormat, StreamRole};
 #[cfg(feature = "image")]
 #[test]
 fn test_camera() {
-  let mut cm = CameraManager::new().unwrap();
+  let cm = CameraManager::new().unwrap();
   println!("cm: {cm:?}");
   let mut cam = cm.get_camera_by_name(&cm.get_camera_names()[0]).unwrap();
   println!("cam: {cam:?}");
@@ -24,7 +24,7 @@ fn test_camera() {
     cam.capture_next_picture(0).unwrap();
     println!("Capturing image #{}", i);
     std::thread::sleep(std::time::Duration::from_millis(200));
-    let events = cam.poll_events().unwrap();
+    let events = cam.poll_events(None).unwrap();
     for event in events {
       match event {
         CameraEvent::RequestComplete {
@@ -45,4 +45,17 @@ fn test_camera() {
     }
   }
   println!("Done!");
+}
+
+#[test]
+#[should_panic]
+fn panic_with_camera() {
+  // Wait to ensure we can lock the camera (when running many tests back-to-back).
+  std::thread::sleep(std::time::Duration::from_secs(5));
+  let cm = CameraManager::new().unwrap();
+  let mut cam = cm.get_camera_by_name(&cm.get_camera_names()[0]).unwrap();
+  cam.generate_config(&[StreamRole::Viewfinder]).unwrap();
+  cam.apply_config().unwrap();
+  cam.start_stream().unwrap();
+  panic!("Ah!");
 }
