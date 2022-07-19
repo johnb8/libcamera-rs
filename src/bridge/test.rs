@@ -49,11 +49,16 @@ fn test_unsafe_camera() {
   let controls = unsafe { camera.get().get_controls() };
   for control in &controls {
     println!(
-      "Camera control '{}': ID={}, type={:?}, value={}",
+      "Camera control '{}': ID={}, type={:?}, value={}, values={:?}",
       unsafe { control.id.get().get_name() },
       unsafe { control.id.get().get_id() },
       unsafe { control.id.get().get_type() },
       unsafe { control.value.get().raw_to_string() },
+      control
+        .valid_values
+        .iter()
+        .map(|v| unsafe { v.get().raw_to_string() })
+        .collect::<Vec<_>>(),
     );
   }
 

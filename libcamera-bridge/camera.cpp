@@ -130,6 +130,13 @@ rust::Vec<ControlPair> Camera::get_controls() const {
 
   rust::Vec<ControlPair> controls;
   for (const auto &[control, value] : this->inner->controls()) {
+    rust::Vec<BindControlValue> possible_values;
+    for (const auto &value : value.values()) {
+      BindControlValue bind_value{
+          .inner = std::make_unique<ControlValue>(value),
+      };
+      possible_values.push_back(std::move(bind_value));
+    }
     ControlPair control_pair{
         .id =
             {
@@ -147,6 +154,7 @@ rust::Vec<ControlPair> Camera::get_controls() const {
             {
                 .inner = std::make_unique<ControlValue>(value.def()),
             },
+        .valid_values = std::move(possible_values),
     };
     controls.push_back(std::move(control_pair));
   }

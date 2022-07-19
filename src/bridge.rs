@@ -204,6 +204,7 @@ pub mod ffi {
     min: BindControlValue,
     max: BindControlValue,
     value: BindControlValue,
+    valid_values: Vec<BindControlValue>,
   }
 
   extern "C++" {
