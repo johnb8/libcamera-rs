@@ -57,6 +57,9 @@ fn main() {
 
 Most functions should be well enough documented with rustdoc.
 
-# TODO
+# NOTE
 
-Currently, this *will* segfault if a thread containing a reference to a `Camera` panics.
+When cross compiling for raspberry pi, ensure `_GLIBCXX_HAVE_ATOMIC_LOCK_POLICY` is unset in `c++config.h`.
+Otherwise the shared pointer to the camera will be misinterpreted by the inner reference counted lock type.
+This results in the shared pointer that is returned by libcamera appearing to the main thread to only have 1 reference,
+which causes it to be immediately destructed, causing it to be invalid by get_camera is called.

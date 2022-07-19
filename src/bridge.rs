@@ -51,10 +51,6 @@ pub mod ffi {
     Yuv420,
     /// 16bpp*, chroma subsampling (U, V half width), three channel image, YUV (4:2:2) encoing, order Y', U, V
     Yuv422,
-    /// 16bpp*, chroma subsampling (U, V half width), three channel image, YUV (4:2:2) encoing, order Y', V, U
-    Yvu422,
-    /// 24bpp, three channel image, YUV (4:4:4) encoing, order Y', U, V
-    Yuv444,
     /// MJPEG (motion JPEG) encoding, effectively one JPEG image per frame
     Mjpeg,
   }

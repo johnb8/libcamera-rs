@@ -2,6 +2,8 @@
 
 #include "libcamera-rs/src/bridge.rs.h"
 
+#include <bits/stdc++.h>
+
 BindCameraManager make_camera_manager() {
   BindCameraManager manager{
       .inner = std::make_unique<CameraManager>(
@@ -38,8 +40,11 @@ rust::Vec<rust::String> CameraManager::get_camera_ids() const {
 BindCamera CameraManager::get_camera_by_id(rust::Str id) {
   VALIDATE_POINTERS()
 
-  std::shared_ptr<libcamera::Camera> cam = this->inner->get(std::string(id));
-  if (!cam) {
+  std::string cam_id = std::string(id);
+  std::shared_ptr<libcamera::Camera> cam = this->inner->get(cam_id);
+  size_t uc = cam.use_count(); // C++ header mismatch will cause this to be
+                               // completely silly
+  if (!cam || uc > INT_MAX) {
     throw error_from_code(ENODEV);
   }
   BindCamera bind_cam{

@@ -31,12 +31,6 @@ BindPixelFormat get_default_pixel_format(DefaultPixelFormat default_format) {
   case DefaultPixelFormat::Yuv422:
     fmt = &libcamera::formats::YUV422;
     break;
-  case DefaultPixelFormat::Yvu422:
-    fmt = &libcamera::formats::YVU422;
-    break;
-  case DefaultPixelFormat::Yuv444:
-    fmt = &libcamera::formats::YUV444;
-    break;
   case DefaultPixelFormat::Mjpeg:
     fmt = &libcamera::formats::MJPEG;
     break;
@@ -74,12 +68,6 @@ DefaultPixelFormat PixelFormat::as_default_pixel_format() const {
   }
   if (this->inner == libcamera::formats::YUV422) {
     return DefaultPixelFormat::Yuv422;
-  }
-  if (this->inner == libcamera::formats::YVU422) {
-    return DefaultPixelFormat::Yvu422;
-  }
-  if (this->inner == libcamera::formats::YUV444) {
-    return DefaultPixelFormat::Yuv444;
   }
   if (this->inner == libcamera::formats::MJPEG) {
     return DefaultPixelFormat::Mjpeg;

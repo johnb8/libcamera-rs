@@ -1,4 +1,4 @@
-use crate::prelude::{CameraEvent, CameraManager, PixelFormat, StreamRole};
+use crate::prelude::{CameraEvent, CameraManager, LibcameraError, PixelFormat, StreamRole};
 
 #[cfg(feature = "image")]
 #[test]
@@ -58,4 +58,16 @@ fn panic_with_camera() {
   cam.apply_config().unwrap();
   cam.start_stream().unwrap();
   panic!("Ah!");
+}
+
+#[test]
+fn try_start_before_configure() {
+  let cm = CameraManager::new().unwrap();
+  println!("camers: {:?}", cm.get_camera_names());
+  let mut cam = cm.get_camera_by_name(&cm.get_camera_names()[0]).unwrap();
+  assert!(matches!(
+    cam.start_stream(),
+    Err(LibcameraError::InvalidConfig)
+  ));
+  cam.generate_config(&[StreamRole::Viewfinder]).unwrap();
 }
