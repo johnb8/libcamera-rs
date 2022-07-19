@@ -276,7 +276,8 @@ impl CameraControls {
         _ => false,
       };
       if !did_name_match {
-        if let Some(control_value) = match unsafe { control.id.get().get_type() } {
+        let control_type = unsafe { control.id.get().get_type() };
+        if let Some(control_value) = match control_type {
           ffi::CameraControlType::None => Some(CameraControlValue::None),
           ffi::CameraControlType::Bool => (&control).try_into().ok().map(CameraControlValue::Bool),
           ffi::CameraControlType::Byte => (&control).try_into().ok().map(CameraControlValue::Byte),
@@ -300,7 +301,7 @@ impl CameraControls {
             .others
             .insert(unsafe { control.id.get().get_id() }, (name, control_value));
         } else {
-          eprintln!("Camera control with conflicting types: {name}");
+          eprintln!("Camera control with conflicting types: {name} is supposed to have type of {control_type:?}.");
         }
       }
     }

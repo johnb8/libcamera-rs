@@ -274,6 +274,22 @@ impl Camera<'_> {
     unsafe { self.inner.get_mut().start() }?;
     Ok(true)
   }
+  /// Stop the camera stream
+  pub fn stop_stream(&mut self) -> Result<()> {
+    unsafe { self.inner.get_mut().stop() }?;
+    for stream_config in self
+      .config
+      .as_ref()
+      .ok_or(LibcameraError::InvalidConfig)?
+      .streams()
+    {
+      let mut stream = unsafe { stream_config.get_inner().get().stream() };
+      unsafe { self.allocator.get_mut().free(stream.get_mut()) }?;
+    }
+    self.streams = Vec::new();
+    self.started = false;
+    Ok(())
+  }
   /// Start the process to capture an image from the camera.
   ///
   /// # Returns
@@ -363,7 +379,6 @@ impl Camera<'_> {
 
 impl Drop for Camera<'_> {
   fn drop(&mut self) {
-    eprintln!("Dropping inner camera.");
     self.streams = Vec::new();
     unsafe { self.inner.get_mut().stop() }.unwrap();
     unsafe { self.inner.get_mut().release() }.unwrap();
