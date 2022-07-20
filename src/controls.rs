@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::ops::RangeInclusive;
@@ -7,13 +8,37 @@ use crate::{LibcameraError, Result};
 
 /// Contains a value with an acceptable minimum and maximum and a default.
 #[derive(Debug)]
-pub struct MinMaxValue<T: PartialOrd + Copy + Debug> {
+pub struct MinMaxValue<T: PartialOrd + Debug> {
   range: RangeInclusive<T>,
   default: T,
   value: T,
 }
 
-impl<T: PartialOrd + Copy + Debug> MinMaxValue<T> {
+/// Things that can be clamped to a range.
+pub trait Clampable {
+  /// Clamp self to fit inside range.
+  fn clamp(self, range: &RangeInclusive<Self>) -> Self
+  where
+    Self: Sized + PartialOrd + Clone,
+  {
+    if range.start() > &self {
+      range.start().clone()
+    } else if range.end() < &self {
+      range.end().clone()
+    } else {
+      self
+    }
+  }
+}
+
+impl Clampable for bool {}
+impl Clampable for u8 {}
+impl Clampable for i32 {}
+impl Clampable for i64 {}
+impl Clampable for f32 {}
+impl Clampable for String {}
+
+impl<T: 'static + PartialOrd + Clampable + Clone + Debug + Sized> MinMaxValue<T> {
   /// Creates a new MinMaxValue out of a given min, max, and default
   ///
   /// # Returns
@@ -22,41 +47,41 @@ impl<T: PartialOrd + Copy + Debug> MinMaxValue<T> {
     let range = min..=max;
     if range.contains(&default) {
       Ok(MinMaxValue {
-        range: min..=max,
+        range,
+        value: default.clone(),
         default,
-        value: default,
       })
     } else {
-      Err(LibcameraError::InvalidControlValue)
+      Err(LibcameraError::InvalidControlValue(Box::new(default)))
     }
   }
   /// Retrieve the default value
-  pub fn get_default(&self) -> T {
-    self.default
+  pub fn get_default(&self) -> &T {
+    &self.default
   }
   /// Retrieve the minimum value
-  pub fn min(&self) -> T {
-    *self.range.start()
+  pub fn min(&self) -> &T {
+    self.range.start()
   }
   /// Retrieve the maximum value
-  pub fn max(&self) -> T {
-    *self.range.end()
+  pub fn max(&self) -> &T {
+    self.range.end()
   }
   /// Gets the stored value
   ///
   /// It is gurenteed to lie within MinMaxValue::min() and MinMaxValue::max().
-  pub fn get_value(&self) -> T {
-    self.value
+  pub fn get_value(&self) -> &T {
+    &self.value
   }
   /// Gets the stored value if it is not equal to the default stored value.
-  pub fn get_value_if_changed(&self) -> Option<T> {
+  pub fn get_value_if_changed(&self) -> Option<&T> {
     if self.value != self.default {
-      Some(self.value)
+      Some(&self.value)
     } else {
       None
     }
   }
-  /// Verifies that value lies within the acceptable range for this value
+  /// Verifies that value lies within the acceptable range for this value, then sets this value.
   ///
   /// # Returns
   /// `true` if the value lies within the acceptable range for this value and was stored, `false` otherwise.
@@ -67,6 +92,10 @@ impl<T: PartialOrd + Copy + Debug> MinMaxValue<T> {
     } else {
       false
     }
+  }
+  /// Set this value to the given value.
+  pub fn set_value_clamped(&mut self, value: T) {
+    self.value = value.clamp(&self.range)
   }
 }
 
@@ -103,6 +132,26 @@ impl TryFrom<&ffi::ControlPair> for MinMaxValue<i32> {
   }
 }
 
+impl<
+    T: 'static
+      + TryFrom<i32, Error = LibcameraError>
+      + ControlEnum
+      + Clampable
+      + Copy
+      + Debug
+      + PartialOrd,
+  > TryFrom<&ffi::ControlPair> for MinMaxValue<T>
+{
+  type Error = LibcameraError;
+  fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<T>> {
+    MinMaxValue::new(
+      unsafe { pair.min.get().get_i32() }?.try_into()?,
+      unsafe { pair.max.get().get_i32() }?.try_into()?,
+      unsafe { pair.value.get().get_i32() }?.try_into()?,
+    )
+  }
+}
+
 impl TryFrom<&ffi::ControlPair> for MinMaxValue<i64> {
   type Error = LibcameraError;
   fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<i64>> {
@@ -125,6 +174,155 @@ impl TryFrom<&ffi::ControlPair> for MinMaxValue<f32> {
   }
 }
 
+impl TryFrom<&ffi::ControlPair> for MinMaxValue<String> {
+  type Error = LibcameraError;
+  fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<String>> {
+    MinMaxValue::new(
+      unsafe { pair.min.get().get_string() }?,
+      unsafe { pair.max.get().get_string() }?,
+      unsafe { pair.value.get().get_string() }?,
+    )
+  }
+}
+
+/// Represents a control value rectangle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Rectangle {
+  /// The starting x position
+  x: i32,
+  /// The starting y position
+  y: i32,
+  /// The width
+  width: u32,
+  /// The height
+  height: u32,
+}
+
+impl From<ffi::ControlRectangle> for Rectangle {
+  fn from(v: ffi::ControlRectangle) -> Rectangle {
+    Rectangle {
+      x: v.x,
+      y: v.y,
+      width: v.width,
+      height: v.height,
+    }
+  }
+}
+
+impl From<Rectangle> for ffi::ControlRectangle {
+  fn from(v: Rectangle) -> ffi::ControlRectangle {
+    ffi::ControlRectangle {
+      x: v.x,
+      y: v.y,
+      width: v.width,
+      height: v.height,
+    }
+  }
+}
+
+impl PartialOrd for Rectangle {
+  fn partial_cmp(&self, other: &Rectangle) -> Option<Ordering> {
+    let x = self.x.cmp(&other.x);
+    let y = self.y.cmp(&other.y);
+    let w = self.width.cmp(&other.width);
+    let h = self.height.cmp(&other.height);
+    if (x == y && w == h && x == w) || (y == Ordering::Equal && w == y && h == y) {
+      Some(x)
+    } else if x == Ordering::Equal && w == x && h == x {
+      Some(y)
+    } else if x == Ordering::Equal && y == x && h == x {
+      Some(w)
+    } else if x == Ordering::Equal && y == x && w == x {
+      Some(h)
+    } else {
+      None
+    }
+  }
+}
+
+impl Clampable for Rectangle {
+  fn clamp(self, range: &RangeInclusive<Self>) -> Self {
+    Rectangle {
+      x: Ord::clamp(self.x, range.start().x, range.end().x),
+      y: Ord::clamp(self.y, range.start().y, range.end().y),
+      width: Ord::clamp(self.width, range.start().width, range.end().height),
+      height: Ord::clamp(self.height, range.start().width, range.end().height),
+    }
+  }
+}
+
+/// Represents a control value size.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Size {
+  /// The width.
+  width: u32,
+  /// The height.
+  height: u32,
+}
+
+impl From<ffi::ControlSize> for Size {
+  fn from(v: ffi::ControlSize) -> Size {
+    Size {
+      width: v.width,
+      height: v.height,
+    }
+  }
+}
+
+impl From<Size> for ffi::ControlSize {
+  fn from(v: Size) -> ffi::ControlSize {
+    ffi::ControlSize {
+      width: v.width,
+      height: v.height,
+    }
+  }
+}
+
+impl Clampable for Size {
+  fn clamp(self, range: &RangeInclusive<Self>) -> Self {
+    Size {
+      width: Ord::clamp(self.width, range.start().width, range.end().height),
+      height: Ord::clamp(self.height, range.start().width, range.end().height),
+    }
+  }
+}
+
+impl PartialOrd for Size {
+  fn partial_cmp(&self, other: &Size) -> Option<Ordering> {
+    let w = self.width.cmp(&other.width);
+    let h = self.height.cmp(&other.height);
+    if w == h || h == Ordering::Equal {
+      Some(w)
+    } else if w == Ordering::Equal {
+      Some(h)
+    } else {
+      None
+    }
+  }
+}
+
+impl TryFrom<&ffi::ControlPair> for MinMaxValue<Rectangle> {
+  type Error = LibcameraError;
+  fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<Rectangle>> {
+    MinMaxValue::new(
+      unsafe { pair.min.get().get_rectangle() }?.into(),
+      unsafe { pair.max.get().get_rectangle() }?.into(),
+      unsafe { pair.value.get().get_rectangle() }?.into(),
+    )
+  }
+}
+
+impl TryFrom<&ffi::ControlPair> for MinMaxValue<Size> {
+  type Error = LibcameraError;
+  fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<Size>> {
+    MinMaxValue::new(
+      unsafe { pair.min.get().get_size() }?.into(),
+      unsafe { pair.max.get().get_size() }?.into(),
+      unsafe { pair.value.get().get_size() }?.into(),
+    )
+  }
+}
+
 /// Represents a camera control value with an unknown type
 ///
 /// Most of the time you probably want to use `CameraControls` instead.
@@ -143,9 +341,131 @@ pub enum CameraControlValue {
   Integer64(MinMaxValue<i64>),
   /// A control value containing a 32-bit float, e.g. brightness.
   Float(MinMaxValue<f32>),
-  // String(MinMaxValue<String>),
-  // Rectangle(MinMaxValue<Rectangle>),
-  // Size(MinMaxValue<Size>),
+  /// A control value containing a String.
+  String(MinMaxValue<String>),
+  /// A control value containing a Rectangle
+  Rectangle(MinMaxValue<Rectangle>),
+  /// A control value containing a Size.
+  Size(MinMaxValue<Size>),
+}
+
+/// Camera auto exposure metering mode
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AeMeteringMode {
+  /// Hah brittish spelling
+  CentreWeighted,
+  /// Spot
+  Spot,
+  /// Oooh fancy sounding
+  Matrix,
+  /// ???
+  Custom,
+}
+
+/// Camera auto exposure constraint mode
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AeConstraintMode {
+  /// Normal
+  Normal,
+  /// Highlights???
+  Highlight,
+  /// ???
+  Custom,
+}
+
+/// Camera auto exposure mode
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AeExposureMode {
+  /// Normal
+  Normal,
+  /// Shorter than normal
+  Short,
+  /// Longer than normal
+  Long,
+}
+
+/// Camera auto white balance mode
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AwbMode {
+  /// Auto
+  Auto,
+  /// Incandescent
+  Incandescent,
+  /// Tungsten
+  Tungsten,
+  /// Fluorescent
+  Fluorescent,
+  /// Indoor
+  Indoor,
+  /// Daylight
+  Daylight,
+  /// Cloudy
+  Cloudy,
+  /// Custom
+  Custom,
+}
+
+trait ControlEnum {}
+
+impl ControlEnum for AeMeteringMode {}
+impl ControlEnum for AeConstraintMode {}
+impl ControlEnum for AeExposureMode {}
+impl ControlEnum for AwbMode {}
+
+impl Clampable for AeMeteringMode {}
+impl Clampable for AeConstraintMode {}
+impl Clampable for AeExposureMode {}
+impl Clampable for AwbMode {}
+
+impl TryFrom<i32> for AeMeteringMode {
+  type Error = LibcameraError;
+  fn try_from(i: i32) -> Result<Self> {
+    match i {
+      0 => Ok(Self::CentreWeighted),
+      1 => Ok(Self::Spot),
+      2 => Ok(Self::Matrix),
+      3 => Ok(Self::Custom),
+      i => Err(LibcameraError::InvalidControlValue(Box::new(i))),
+    }
+  }
+}
+impl TryFrom<i32> for AeConstraintMode {
+  type Error = LibcameraError;
+  fn try_from(i: i32) -> Result<Self> {
+    match i {
+      0 => Ok(Self::Normal),
+      1 => Ok(Self::Highlight),
+      2 => Ok(Self::Custom),
+      i => Err(LibcameraError::InvalidControlValue(Box::new(i))),
+    }
+  }
+}
+impl TryFrom<i32> for AeExposureMode {
+  type Error = LibcameraError;
+  fn try_from(i: i32) -> Result<Self> {
+    match i {
+      0 => Ok(Self::Normal),
+      1 => Ok(Self::Short),
+      2 => Ok(Self::Long),
+      i => Err(LibcameraError::InvalidControlValue(Box::new(i))),
+    }
+  }
+}
+impl TryFrom<i32> for AwbMode {
+  type Error = LibcameraError;
+  fn try_from(i: i32) -> Result<Self> {
+    match i {
+      0 => Ok(Self::Auto),
+      1 => Ok(Self::Incandescent),
+      2 => Ok(Self::Tungsten),
+      3 => Ok(Self::Fluorescent),
+      4 => Ok(Self::Indoor),
+      5 => Ok(Self::Daylight),
+      6 => Ok(Self::Cloudy),
+      7 => Ok(Self::Custom),
+      i => Err(LibcameraError::InvalidControlValue(Box::new(i))),
+    }
+  }
 }
 
 /// Stores camera controls.
@@ -158,13 +478,13 @@ pub struct CameraControls {
   pub ae_enable: Option<MinMaxValue<bool>>,
   /// Autoexposure metering mode.
   /// **TODO**: This should be an enum.
-  pub ae_metering_mode: Option<MinMaxValue<i32>>,
+  pub ae_metering_mode: Option<MinMaxValue<AeMeteringMode>>,
   /// Autoexposure constraint mode.
   /// **TODO**: This should be an enum.
-  pub ae_constraint_mode: Option<MinMaxValue<i32>>,
+  pub ae_constraint_mode: Option<MinMaxValue<AeConstraintMode>>,
   /// Autoexposure mode.
   /// **TODO**: This should be an enum.
-  pub ae_exposure_mode: Option<MinMaxValue<i32>>,
+  pub ae_exposure_mode: Option<MinMaxValue<AeExposureMode>>,
   /// Exposure "value".
   pub exposure_value: Option<MinMaxValue<f32>>,
   /// Exposure time.
@@ -179,7 +499,7 @@ pub struct CameraControls {
   pub awb_enable: Option<MinMaxValue<bool>>,
   /// Auto white balance mode.
   /// **TODO**: This should be an enum.
-  pub awb_mode: Option<MinMaxValue<i32>>,
+  pub awb_mode: Option<MinMaxValue<AwbMode>>,
   /// Colour gains.
   pub colour_gains: Option<MinMaxValue<f32>>,
   /// Saturation.
@@ -310,87 +630,87 @@ impl CameraControls {
   pub(crate) fn get_libcamera(&self) -> Vec<(u32, ffi::BindControlValue)> {
     let mut controls = Vec::new();
     if let Some(ae_enable) = &self.ae_enable {
-      if let Some(value) = ae_enable.get_value_if_changed() {
+      if let Some(&value) = ae_enable.get_value_if_changed() {
         controls.push((1, unsafe { ffi::new_control_value_bool(value) }));
       }
     }
     if let Some(ae_metering_mode) = &self.ae_metering_mode {
-      if let Some(value) = ae_metering_mode.get_value_if_changed() {
-        controls.push((3, unsafe { ffi::new_control_value_i32(value) }));
+      if let Some(&value) = ae_metering_mode.get_value_if_changed() {
+        controls.push((3, unsafe { ffi::new_control_value_i32(value as i32) }));
       }
     }
     if let Some(ae_constraint_mode) = &self.ae_constraint_mode {
-      if let Some(value) = ae_constraint_mode.get_value_if_changed() {
-        controls.push((4, unsafe { ffi::new_control_value_i32(value) }));
+      if let Some(&value) = ae_constraint_mode.get_value_if_changed() {
+        controls.push((4, unsafe { ffi::new_control_value_i32(value as i32) }));
       }
     }
     if let Some(ae_exposure_mode) = &self.ae_exposure_mode {
-      if let Some(value) = ae_exposure_mode.get_value_if_changed() {
-        controls.push((5, unsafe { ffi::new_control_value_i32(value) }));
+      if let Some(&value) = ae_exposure_mode.get_value_if_changed() {
+        controls.push((5, unsafe { ffi::new_control_value_i32(value as i32) }));
       }
     }
     if let Some(exposure_value) = &self.exposure_value {
-      if let Some(value) = exposure_value.get_value_if_changed() {
+      if let Some(&value) = exposure_value.get_value_if_changed() {
         controls.push((6, unsafe { ffi::new_control_value_f32(value) }));
       }
     }
     if let Some(exposure_time) = &self.exposure_time {
-      if let Some(value) = exposure_time.get_value_if_changed() {
+      if let Some(&value) = exposure_time.get_value_if_changed() {
         controls.push((7, unsafe { ffi::new_control_value_i32(value) }));
       }
     }
     if let Some(analogue_gain) = &self.analogue_gain {
-      if let Some(value) = analogue_gain.get_value_if_changed() {
+      if let Some(&value) = analogue_gain.get_value_if_changed() {
         controls.push((8, unsafe { ffi::new_control_value_f32(value) }));
       }
     }
     if let Some(brightness) = &self.brightness {
-      if let Some(value) = brightness.get_value_if_changed() {
+      if let Some(&value) = brightness.get_value_if_changed() {
         controls.push((9, unsafe { ffi::new_control_value_f32(value) }));
       }
     }
     if let Some(contrast) = &self.contrast {
-      if let Some(value) = contrast.get_value_if_changed() {
+      if let Some(&value) = contrast.get_value_if_changed() {
         controls.push((10, unsafe { ffi::new_control_value_f32(value) }));
       }
     }
     if let Some(awb_enable) = &self.awb_enable {
-      if let Some(value) = awb_enable.get_value_if_changed() {
+      if let Some(&value) = awb_enable.get_value_if_changed() {
         controls.push((12, unsafe { ffi::new_control_value_bool(value) }));
       }
     }
     if let Some(awb_mode) = &self.awb_mode {
-      if let Some(value) = awb_mode.get_value_if_changed() {
-        controls.push((13, unsafe { ffi::new_control_value_i32(value) }));
+      if let Some(&value) = awb_mode.get_value_if_changed() {
+        controls.push((13, unsafe { ffi::new_control_value_i32(value as i32) }));
       }
     }
     if let Some(colour_gains) = &self.colour_gains {
-      if let Some(value) = colour_gains.get_value_if_changed() {
+      if let Some(&value) = colour_gains.get_value_if_changed() {
         controls.push((15, unsafe { ffi::new_control_value_f32(value) }));
       }
     }
     if let Some(saturation) = &self.saturation {
-      if let Some(value) = saturation.get_value_if_changed() {
+      if let Some(&value) = saturation.get_value_if_changed() {
         controls.push((17, unsafe { ffi::new_control_value_f32(value) }));
       }
     }
     if let Some(sharpness) = &self.sharpness {
-      if let Some(value) = sharpness.get_value_if_changed() {
+      if let Some(&value) = sharpness.get_value_if_changed() {
         controls.push((19, unsafe { ffi::new_control_value_f32(value) }));
       }
     }
     if let Some(colour_correction_matrix) = &self.colour_correction_matrix {
-      if let Some(value) = colour_correction_matrix.get_value_if_changed() {
+      if let Some(&value) = colour_correction_matrix.get_value_if_changed() {
         controls.push((21, unsafe { ffi::new_control_value_f32(value) }));
       }
     }
     if let Some(frame_duration_limits) = &self.frame_duration_limits {
-      if let Some(value) = frame_duration_limits.get_value_if_changed() {
+      if let Some(&value) = frame_duration_limits.get_value_if_changed() {
         controls.push((25, unsafe { ffi::new_control_value_i64(value) }));
       }
     }
     if let Some(noise_reduction_mode) = &self.noise_reduction_mode {
-      if let Some(value) = noise_reduction_mode.get_value_if_changed() {
+      if let Some(&value) = noise_reduction_mode.get_value_if_changed() {
         controls.push((39, unsafe { ffi::new_control_value_i32(value) }));
       }
     }
@@ -398,23 +718,29 @@ impl CameraControls {
       if let Some(value) = match value {
         CameraControlValue::None => None,
         CameraControlValue::Bool(value) => {
-          Some(unsafe { ffi::new_control_value_bool(value.get_value()) })
+          Some(unsafe { ffi::new_control_value_bool(*value.get_value()) })
         }
         CameraControlValue::Byte(value) => {
-          Some(unsafe { ffi::new_control_value_u8(value.get_value()) })
+          Some(unsafe { ffi::new_control_value_u8(*value.get_value()) })
         }
         CameraControlValue::Integer32(value) => {
-          Some(unsafe { ffi::new_control_value_i32(value.get_value()) })
+          Some(unsafe { ffi::new_control_value_i32(*value.get_value()) })
         }
         CameraControlValue::Integer64(value) => {
-          Some(unsafe { ffi::new_control_value_i64(value.get_value()) })
+          Some(unsafe { ffi::new_control_value_i64(*value.get_value()) })
         }
         CameraControlValue::Float(value) => {
-          Some(unsafe { ffi::new_control_value_f32(value.get_value()) })
+          Some(unsafe { ffi::new_control_value_f32(*value.get_value()) })
         }
-        // CameraControlValue::String(value) => Some(unsafe { ffi::new_control_value_string(value.get_value()) }),
-        // CameraControlValue::Rectangle(value) => Some(unsafe { ffi::new_control_value_rectangle(value.get_value()) }),
-        // CameraControlValue::Size(value) => Some(unsafe { ffi::new_control_value_size(value.get_value()) }),
+        CameraControlValue::String(value) => {
+          Some(unsafe { ffi::new_control_value_string(value.get_value()) })
+        }
+        CameraControlValue::Rectangle(value) => Some(unsafe {
+          ffi::new_control_value_rectangle(ffi::ControlRectangle::from(*value.get_value()))
+        }),
+        CameraControlValue::Size(value) => {
+          Some(unsafe { ffi::new_control_value_size(ffi::ControlSize::from(*value.get_value())) })
+        }
       } {
         controls.push((*id, value));
       }

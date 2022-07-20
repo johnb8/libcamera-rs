@@ -207,6 +207,20 @@ pub mod ffi {
     valid_values: Vec<BindControlValue>,
   }
 
+  #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+  struct ControlRectangle {
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+  }
+
+  #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+  struct ControlSize {
+    width: u32,
+    height: u32,
+  }
+
   extern "C++" {
     include!("libcamera-rs/libcamera-bridge/core.hpp");
 
@@ -343,13 +357,18 @@ pub mod ffi {
     pub unsafe fn new_control_value_i32(value: i32) -> BindControlValue;
     pub unsafe fn new_control_value_i64(value: i64) -> BindControlValue;
     pub unsafe fn new_control_value_f32(value: f32) -> BindControlValue;
-    pub unsafe fn new_control_value_string(value: String) -> BindControlValue;
+    pub unsafe fn new_control_value_string(value: &str) -> BindControlValue;
+    pub unsafe fn new_control_value_rectangle(value: ControlRectangle) -> BindControlValue;
+    pub unsafe fn new_control_value_size(value: ControlSize) -> BindControlValue;
 
     pub unsafe fn get_bool(self: &ControlValue) -> Result<bool>;
     pub unsafe fn get_u8(self: &ControlValue) -> Result<u8>;
     pub unsafe fn get_i32(self: &ControlValue) -> Result<i32>;
     pub unsafe fn get_i64(self: &ControlValue) -> Result<i64>;
     pub unsafe fn get_f32(self: &ControlValue) -> Result<f32>;
+    pub unsafe fn get_string(self: &ControlValue) -> Result<String>;
+    pub unsafe fn get_rectangle(self: &ControlValue) -> Result<ControlRectangle>;
+    pub unsafe fn get_size(self: &ControlValue) -> Result<ControlSize>;
 
     pub unsafe fn raw_to_string(self: &ControlValue) -> String;
   }

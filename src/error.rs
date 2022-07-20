@@ -16,8 +16,11 @@ pub enum LibcameraError {
   #[error("No buffer ready for capture (all buffers in use, capture pictures slower!)")]
   NoBufferReady,
   /// An error emitted when a control value is attempted to be set to a value outside of the acceptable range.
-  #[error("Control value out of range!")]
-  InvalidControlValue,
+  #[error("Control value ({0:?}) out of range!")]
+  InvalidControlValue(Box<dyn std::fmt::Debug>),
+  /// An error reading a control value
+  #[error("Unknown control value!")]
+  ControlValueError,
   /// An error en/decoding an image.
   #[cfg(feature = "image")]
   #[error("Image error: {0}")]
