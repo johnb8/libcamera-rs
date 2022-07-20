@@ -19,7 +19,7 @@ pub enum LibcameraError {
   #[error("Control value ({0:?}) out of range!")]
   InvalidControlValue(Box<dyn std::fmt::Debug>),
   /// An error reading a control value
-  #[error("Unknown control value!")]
+  #[error("Error converting control value!")]
   ControlValueError,
   /// An error en/decoding an image.
   #[cfg(feature = "image")]

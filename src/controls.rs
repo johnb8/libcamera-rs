@@ -14,6 +14,10 @@ pub struct MinMaxValue<T: PartialOrd + Debug> {
   value: T,
 }
 
+/// A pair of two float values.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct FloatPair(pub f32, pub f32);
+
 /// Things that can be clamped to a range.
 pub trait Clampable {
   /// Clamp self to fit inside range.
@@ -37,6 +41,131 @@ impl Clampable for i32 {}
 impl Clampable for i64 {}
 impl Clampable for f32 {}
 impl Clampable for String {}
+
+impl Clampable for FloatPair {
+  fn clamp(self, range: &RangeInclusive<Self>) -> Self {
+    FloatPair(
+      self.0.clamp(range.start().0, range.end().0),
+      self.1.clamp(range.start().1, range.end().1),
+    )
+  }
+}
+
+/// Represents a control value rectangle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Rectangle {
+  /// The starting x position
+  x: i32,
+  /// The starting y position
+  y: i32,
+  /// The width
+  width: u32,
+  /// The height
+  height: u32,
+}
+
+impl From<ffi::ControlRectangle> for Rectangle {
+  fn from(v: ffi::ControlRectangle) -> Rectangle {
+    Rectangle {
+      x: v.x,
+      y: v.y,
+      width: v.width,
+      height: v.height,
+    }
+  }
+}
+
+impl From<Rectangle> for ffi::ControlRectangle {
+  fn from(v: Rectangle) -> ffi::ControlRectangle {
+    ffi::ControlRectangle {
+      x: v.x,
+      y: v.y,
+      width: v.width,
+      height: v.height,
+    }
+  }
+}
+
+impl PartialOrd for Rectangle {
+  fn partial_cmp(&self, other: &Rectangle) -> Option<Ordering> {
+    let x = self.x.cmp(&other.x);
+    let y = self.y.cmp(&other.y);
+    let w = self.width.cmp(&other.width);
+    let h = self.height.cmp(&other.height);
+    if (x == y && w == h && x == w) || (y == Ordering::Equal && w == y && h == y) {
+      Some(x)
+    } else if x == Ordering::Equal && w == x && h == x {
+      Some(y)
+    } else if x == Ordering::Equal && y == x && h == x {
+      Some(w)
+    } else if x == Ordering::Equal && y == x && w == x {
+      Some(h)
+    } else {
+      None
+    }
+  }
+}
+
+impl Clampable for Rectangle {
+  fn clamp(self, range: &RangeInclusive<Self>) -> Self {
+    Rectangle {
+      x: Ord::clamp(self.x, range.start().x, range.end().x),
+      y: Ord::clamp(self.y, range.start().y, range.end().y),
+      width: Ord::clamp(self.width, range.start().width, range.end().height),
+      height: Ord::clamp(self.height, range.start().width, range.end().height),
+    }
+  }
+}
+
+/// Represents a control value size.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Size {
+  /// The width.
+  width: u32,
+  /// The height.
+  height: u32,
+}
+
+impl From<ffi::ControlSize> for Size {
+  fn from(v: ffi::ControlSize) -> Size {
+    Size {
+      width: v.width,
+      height: v.height,
+    }
+  }
+}
+
+impl From<Size> for ffi::ControlSize {
+  fn from(v: Size) -> ffi::ControlSize {
+    ffi::ControlSize {
+      width: v.width,
+      height: v.height,
+    }
+  }
+}
+
+impl Clampable for Size {
+  fn clamp(self, range: &RangeInclusive<Self>) -> Self {
+    Size {
+      width: Ord::clamp(self.width, range.start().width, range.end().height),
+      height: Ord::clamp(self.height, range.start().width, range.end().height),
+    }
+  }
+}
+
+impl PartialOrd for Size {
+  fn partial_cmp(&self, other: &Size) -> Option<Ordering> {
+    let w = self.width.cmp(&other.width);
+    let h = self.height.cmp(&other.height);
+    if w == h || h == Ordering::Equal {
+      Some(w)
+    } else if w == Ordering::Equal {
+      Some(h)
+    } else {
+      None
+    }
+  }
+}
 
 impl<T: 'static + PartialOrd + Clampable + Clone + Debug + Sized> MinMaxValue<T> {
   /// Creates a new MinMaxValue out of a given min, max, and default
@@ -174,6 +303,28 @@ impl TryFrom<&ffi::ControlPair> for MinMaxValue<f32> {
   }
 }
 
+impl TryFrom<Vec<f32>> for FloatPair {
+  type Error = LibcameraError;
+  fn try_from(arr: Vec<f32>) -> Result<FloatPair> {
+    if let &[a1, a2] = &arr[..] {
+      Ok(FloatPair(a1, a2))
+    } else {
+      Err(LibcameraError::ControlValueError)
+    }
+  }
+}
+
+impl TryFrom<&ffi::ControlPair> for MinMaxValue<FloatPair> {
+  type Error = LibcameraError;
+  fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<FloatPair>> {
+    MinMaxValue::new(
+      unsafe { pair.min.get().get_f32_array() }?.try_into()?,
+      unsafe { pair.max.get().get_f32_array() }?.try_into()?,
+      unsafe { pair.value.get().get_f32_array() }?.try_into()?,
+    )
+  }
+}
+
 impl TryFrom<&ffi::ControlPair> for MinMaxValue<String> {
   type Error = LibcameraError;
   fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<String>> {
@@ -182,122 +333,6 @@ impl TryFrom<&ffi::ControlPair> for MinMaxValue<String> {
       unsafe { pair.max.get().get_string() }?,
       unsafe { pair.value.get().get_string() }?,
     )
-  }
-}
-
-/// Represents a control value rectangle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Rectangle {
-  /// The starting x position
-  x: i32,
-  /// The starting y position
-  y: i32,
-  /// The width
-  width: u32,
-  /// The height
-  height: u32,
-}
-
-impl From<ffi::ControlRectangle> for Rectangle {
-  fn from(v: ffi::ControlRectangle) -> Rectangle {
-    Rectangle {
-      x: v.x,
-      y: v.y,
-      width: v.width,
-      height: v.height,
-    }
-  }
-}
-
-impl From<Rectangle> for ffi::ControlRectangle {
-  fn from(v: Rectangle) -> ffi::ControlRectangle {
-    ffi::ControlRectangle {
-      x: v.x,
-      y: v.y,
-      width: v.width,
-      height: v.height,
-    }
-  }
-}
-
-impl PartialOrd for Rectangle {
-  fn partial_cmp(&self, other: &Rectangle) -> Option<Ordering> {
-    let x = self.x.cmp(&other.x);
-    let y = self.y.cmp(&other.y);
-    let w = self.width.cmp(&other.width);
-    let h = self.height.cmp(&other.height);
-    if (x == y && w == h && x == w) || (y == Ordering::Equal && w == y && h == y) {
-      Some(x)
-    } else if x == Ordering::Equal && w == x && h == x {
-      Some(y)
-    } else if x == Ordering::Equal && y == x && h == x {
-      Some(w)
-    } else if x == Ordering::Equal && y == x && w == x {
-      Some(h)
-    } else {
-      None
-    }
-  }
-}
-
-impl Clampable for Rectangle {
-  fn clamp(self, range: &RangeInclusive<Self>) -> Self {
-    Rectangle {
-      x: Ord::clamp(self.x, range.start().x, range.end().x),
-      y: Ord::clamp(self.y, range.start().y, range.end().y),
-      width: Ord::clamp(self.width, range.start().width, range.end().height),
-      height: Ord::clamp(self.height, range.start().width, range.end().height),
-    }
-  }
-}
-
-/// Represents a control value size.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Size {
-  /// The width.
-  width: u32,
-  /// The height.
-  height: u32,
-}
-
-impl From<ffi::ControlSize> for Size {
-  fn from(v: ffi::ControlSize) -> Size {
-    Size {
-      width: v.width,
-      height: v.height,
-    }
-  }
-}
-
-impl From<Size> for ffi::ControlSize {
-  fn from(v: Size) -> ffi::ControlSize {
-    ffi::ControlSize {
-      width: v.width,
-      height: v.height,
-    }
-  }
-}
-
-impl Clampable for Size {
-  fn clamp(self, range: &RangeInclusive<Self>) -> Self {
-    Size {
-      width: Ord::clamp(self.width, range.start().width, range.end().height),
-      height: Ord::clamp(self.height, range.start().width, range.end().height),
-    }
-  }
-}
-
-impl PartialOrd for Size {
-  fn partial_cmp(&self, other: &Size) -> Option<Ordering> {
-    let w = self.width.cmp(&other.width);
-    let h = self.height.cmp(&other.height);
-    if w == h || h == Ordering::Equal {
-      Some(w)
-    } else if w == Ordering::Equal {
-      Some(h)
-    } else {
-      None
-    }
   }
 }
 
@@ -477,13 +512,10 @@ pub struct CameraControls {
   /// Autoexposure enable.
   pub ae_enable: Option<MinMaxValue<bool>>,
   /// Autoexposure metering mode.
-  /// **TODO**: This should be an enum.
   pub ae_metering_mode: Option<MinMaxValue<AeMeteringMode>>,
   /// Autoexposure constraint mode.
-  /// **TODO**: This should be an enum.
   pub ae_constraint_mode: Option<MinMaxValue<AeConstraintMode>>,
   /// Autoexposure mode.
-  /// **TODO**: This should be an enum.
   pub ae_exposure_mode: Option<MinMaxValue<AeExposureMode>>,
   /// Exposure "value".
   pub exposure_value: Option<MinMaxValue<f32>>,
@@ -498,17 +530,18 @@ pub struct CameraControls {
   /// Auto white balance enable.
   pub awb_enable: Option<MinMaxValue<bool>>,
   /// Auto white balance mode.
-  /// **TODO**: This should be an enum.
   pub awb_mode: Option<MinMaxValue<AwbMode>>,
-  /// Colour gains.
-  pub colour_gains: Option<MinMaxValue<f32>>,
+  /// Red/Blue colour gains.
+  pub colour_gains: Option<MinMaxValue<FloatPair>>,
   /// Saturation.
   pub saturation: Option<MinMaxValue<f32>>,
   /// Sharpness.
   pub sharpness: Option<MinMaxValue<f32>>,
-  /// Colour correction "matrix".
+  /// Colour correction matrix.
+  /// **TODO**: Make this actually a 3x3 matrix
   pub colour_correction_matrix: Option<MinMaxValue<f32>>,
-  // pub scaler_crop: Option<MinMaxValue<Rectangle>>, // Rectangle TODO
+  /// Scaler crop
+  pub scaler_crop: Option<MinMaxValue<Rectangle>>, // Rectangle TODO
   /// Frame duration limit.
   pub frame_duration_limits: Option<MinMaxValue<i64>>,
   /// Noise reduction mode.
@@ -686,7 +719,9 @@ impl CameraControls {
     }
     if let Some(colour_gains) = &self.colour_gains {
       if let Some(&value) = colour_gains.get_value_if_changed() {
-        controls.push((15, unsafe { ffi::new_control_value_f32(value) }));
+        controls.push((15, unsafe {
+          ffi::new_control_value_f32_array(&[value.0, value.1])
+        }));
       }
     }
     if let Some(saturation) = &self.saturation {

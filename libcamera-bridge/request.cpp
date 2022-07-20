@@ -25,7 +25,8 @@ BindControlValue Request::get_control(uint32_t id) const {
   libcamera::ControlList &controls = this->inner->controls();
 
   if (!controls.contains(id)) {
-    throw std::runtime_error("No control with specified id.");
+    throw std::runtime_error(
+        "No control has been set in this request with the specified id.");
   }
   BindControlValue control_value{
       .inner = std::make_unique<ControlValue>(controls.get(id)),

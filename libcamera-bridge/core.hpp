@@ -272,6 +272,8 @@ BindControlValue new_control_value_u8(uint8_t value);
 BindControlValue new_control_value_i32(int32_t value);
 BindControlValue new_control_value_i64(int64_t value);
 BindControlValue new_control_value_f32(float value);
+BindControlValue
+new_control_value_f32_array(rust::Slice<const float> values_rust);
 BindControlValue new_control_value_string(rust::Str value);
 BindControlValue new_control_value_rectangle(ControlRectangle value);
 BindControlValue new_control_value_size(ControlSize value);
@@ -284,11 +286,16 @@ public:
   explicit ControlValue(libcamera::ControlValue inner_) : inner{inner_} {}
   const libcamera::ControlValue &get_inner() const;
 
+  CameraControlType get_type() const;
+  bool is_array() const;
+  size_t len() const;
+
   bool get_bool() const;
   uint8_t get_u8() const;
   int32_t get_i32() const;
   int64_t get_i64() const;
   float get_f32() const;
+  rust::Vec<float> get_f32_array() const;
   rust::String get_string() const;
   ControlRectangle get_rectangle() const;
   ControlSize get_size() const;

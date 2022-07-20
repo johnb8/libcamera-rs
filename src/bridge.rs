@@ -357,15 +357,21 @@ pub mod ffi {
     pub unsafe fn new_control_value_i32(value: i32) -> BindControlValue;
     pub unsafe fn new_control_value_i64(value: i64) -> BindControlValue;
     pub unsafe fn new_control_value_f32(value: f32) -> BindControlValue;
+    pub unsafe fn new_control_value_f32_array(value: &[f32]) -> BindControlValue;
     pub unsafe fn new_control_value_string(value: &str) -> BindControlValue;
     pub unsafe fn new_control_value_rectangle(value: ControlRectangle) -> BindControlValue;
     pub unsafe fn new_control_value_size(value: ControlSize) -> BindControlValue;
+
+    pub unsafe fn get_type(self: &ControlValue) -> CameraControlType;
+    pub unsafe fn is_array(self: &ControlValue) -> bool;
+    pub unsafe fn len(self: &ControlValue) -> usize;
 
     pub unsafe fn get_bool(self: &ControlValue) -> Result<bool>;
     pub unsafe fn get_u8(self: &ControlValue) -> Result<u8>;
     pub unsafe fn get_i32(self: &ControlValue) -> Result<i32>;
     pub unsafe fn get_i64(self: &ControlValue) -> Result<i64>;
     pub unsafe fn get_f32(self: &ControlValue) -> Result<f32>;
+    pub unsafe fn get_f32_array(self: &ControlValue) -> Result<Vec<f32>>;
     pub unsafe fn get_string(self: &ControlValue) -> Result<String>;
     pub unsafe fn get_rectangle(self: &ControlValue) -> Result<ControlRectangle>;
     pub unsafe fn get_size(self: &ControlValue) -> Result<ControlSize>;
