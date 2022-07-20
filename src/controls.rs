@@ -228,6 +228,41 @@ impl<T: 'static + PartialOrd + Clampable + Clone + Debug + Sized> MinMaxValue<T>
   }
 }
 
+trait FromMinMaxInt {
+  fn from_int(from: i32) -> Self;
+}
+
+impl<O: FromMinMaxInt + Debug + PartialOrd> From<MinMaxValue<i32>> for MinMaxValue<O> {
+  fn from(input: MinMaxValue<i32>) -> MinMaxValue<O> {
+    MinMaxValue {
+      range: O::from_int(*input.range.start())..=O::from_int(*input.range.end()),
+      value: O::from_int(input.value),
+      default: O::from_int(input.default),
+    }
+  }
+}
+
+impl FromMinMaxInt for bool {
+  fn from_int(from: i32) -> Self {
+    from != 0
+  }
+}
+impl FromMinMaxInt for u8 {
+  fn from_int(from: i32) -> Self {
+    from as u8
+  }
+}
+impl FromMinMaxInt for i64 {
+  fn from_int(from: i32) -> Self {
+    from as i64
+  }
+}
+impl FromMinMaxInt for f32 {
+  fn from_int(from: i32) -> Self {
+    from as f32
+  }
+}
+
 impl TryFrom<&ffi::ControlPair> for MinMaxValue<bool> {
   type Error = LibcameraError;
   fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<bool>> {
@@ -632,19 +667,30 @@ impl CameraControls {
         let control_type = unsafe { control.id.get().get_type() };
         if let Some(control_value) = match control_type {
           ffi::CameraControlType::None => Some(CameraControlValue::None),
-          ffi::CameraControlType::Bool => (&control).try_into().ok().map(CameraControlValue::Bool),
-          ffi::CameraControlType::Byte => (&control).try_into().ok().map(CameraControlValue::Byte),
+          ffi::CameraControlType::Bool => (&control)
+            .try_into()
+            .or_else(|_| MinMaxValue::<i32>::try_from(&control).map(|v| v.into()))
+            .ok()
+            .map(CameraControlValue::Bool),
+          ffi::CameraControlType::Byte => (&control)
+            .try_into()
+            .or_else(|_| MinMaxValue::<i32>::try_from(&control).map(|v| v.into()))
+            .ok()
+            .map(CameraControlValue::Byte),
           ffi::CameraControlType::Integer32 => (&control)
             .try_into()
             .ok()
             .map(CameraControlValue::Integer32),
           ffi::CameraControlType::Integer64 => (&control)
             .try_into()
+            .or_else(|_| MinMaxValue::<i32>::try_from(&control).map(|v| v.into()))
             .ok()
             .map(CameraControlValue::Integer64),
-          ffi::CameraControlType::Float => {
-            (&control).try_into().ok().map(CameraControlValue::Float)
-          }
+          ffi::CameraControlType::Float => (&control)
+            .try_into()
+            .or_else(|_| MinMaxValue::<i32>::try_from(&control).map(|v| v.into()))
+            .ok()
+            .map(CameraControlValue::Float),
           _ => None,
           // ffi::CameraControlType::String => (&control).try_into().ok().map(|control| CameraControlValue::String(control)),
           // ffi::CameraControlType::Rectangle => (&control).try_into().ok().map(|control| CameraControlValue::Rectangle(control)),
