@@ -167,7 +167,7 @@ impl PartialOrd for Size {
   }
 }
 
-impl<T: 'static + PartialOrd + Clampable + Clone + Debug + Sized> MinMaxValue<T> {
+impl<T: 'static + PartialOrd + Clampable + Clone + Debug + Sized + Send + Sync> MinMaxValue<T> {
   /// Creates a new MinMaxValue out of a given min, max, and default
   ///
   /// # Returns
@@ -284,7 +284,9 @@ impl<
       + Clampable
       + Copy
       + Debug
-      + PartialOrd,
+      + PartialOrd
+      + Send
+      + Sync,
   > TryFrom<&ffi::ControlPair> for MinMaxValue<T>
 {
   type Error = LibcameraError;
