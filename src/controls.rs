@@ -9,7 +9,7 @@ use crate::{LibcameraError, Result};
 /// Contains a value with an acceptable minimum and maximum and a default.
 #[derive(Debug)]
 pub struct MinMaxValue<T: PartialOrd + Debug> {
-  range: RangeInclusive<T>,
+  range: Option<RangeInclusive<T>>,
   default: T,
   value: T,
 }
@@ -173,10 +173,17 @@ impl<T: 'static + PartialOrd + Clampable + Clone + Debug + Sized> MinMaxValue<T>
   /// # Returns
   /// Returns None if default is not within min and max.
   pub fn new(min: T, max: T, default: T) -> Result<MinMaxValue<T>> {
+    if min >= max {
+      return Ok(MinMaxValue {
+        range: None,
+        value: default.clone(),
+        default,
+      });
+    }
     let range = min..=max;
     if range.contains(&default) {
       Ok(MinMaxValue {
-        range,
+        range: Some(range),
         value: default.clone(),
         default,
       })
@@ -189,12 +196,12 @@ impl<T: 'static + PartialOrd + Clampable + Clone + Debug + Sized> MinMaxValue<T>
     &self.default
   }
   /// Retrieve the minimum value
-  pub fn min(&self) -> &T {
-    self.range.start()
+  pub fn min(&self) -> Option<&T> {
+    self.range.as_ref().map(|r| r.start())
   }
   /// Retrieve the maximum value
-  pub fn max(&self) -> &T {
-    self.range.end()
+  pub fn max(&self) -> Option<&T> {
+    self.range.as_ref().map(|r| r.end())
   }
   /// Gets the stored value
   ///
@@ -215,51 +222,25 @@ impl<T: 'static + PartialOrd + Clampable + Clone + Debug + Sized> MinMaxValue<T>
   /// # Returns
   /// `true` if the value lies within the acceptable range for this value and was stored, `false` otherwise.
   pub fn set_value(&mut self, value: T) -> bool {
-    if self.range.contains(&value) {
+    if let Some(range) = &self.range {
+      if range.contains(&value) {
+        self.value = value;
+        true
+      } else {
+        false
+      }
+    } else {
       self.value = value;
       true
-    } else {
-      false
     }
   }
   /// Set this value to the given value.
   pub fn set_value_clamped(&mut self, value: T) {
-    self.value = value.clamp(&self.range)
-  }
-}
-
-trait FromMinMaxInt {
-  fn from_int(from: i32) -> Self;
-}
-
-impl<O: FromMinMaxInt + Debug + PartialOrd> From<MinMaxValue<i32>> for MinMaxValue<O> {
-  fn from(input: MinMaxValue<i32>) -> MinMaxValue<O> {
-    MinMaxValue {
-      range: O::from_int(*input.range.start())..=O::from_int(*input.range.end()),
-      value: O::from_int(input.value),
-      default: O::from_int(input.default),
+    if let Some(range) = &self.range {
+      self.value = value.clamp(range)
+    } else {
+      self.value = value;
     }
-  }
-}
-
-impl FromMinMaxInt for bool {
-  fn from_int(from: i32) -> Self {
-    from != 0
-  }
-}
-impl FromMinMaxInt for u8 {
-  fn from_int(from: i32) -> Self {
-    from as u8
-  }
-}
-impl FromMinMaxInt for i64 {
-  fn from_int(from: i32) -> Self {
-    from as i64
-  }
-}
-impl FromMinMaxInt for f32 {
-  fn from_int(from: i32) -> Self {
-    from as f32
   }
 }
 
@@ -353,9 +334,18 @@ impl TryFrom<&ffi::ControlPair> for MinMaxValue<FloatPair> {
   type Error = LibcameraError;
   fn try_from(pair: &ffi::ControlPair) -> Result<MinMaxValue<FloatPair>> {
     MinMaxValue::new(
-      unsafe { pair.min.get().get_f32_array() }?.try_into()?,
-      unsafe { pair.max.get().get_f32_array() }?.try_into()?,
-      unsafe { pair.value.get().get_f32_array() }?.try_into()?,
+      unsafe { pair.min.get().get_f32_array() }
+        .map_err(LibcameraError::InnerError)
+        .and_then(|v| v.try_into())
+        .or_else(|_| unsafe { pair.min.get().get_f32() }.map(|v| FloatPair(v, v)))?,
+      unsafe { pair.max.get().get_f32_array() }
+        .map_err(LibcameraError::InnerError)
+        .and_then(|v| v.try_into())
+        .or_else(|_| unsafe { pair.min.get().get_f32() }.map(|v| FloatPair(v, v)))?,
+      unsafe { pair.value.get().get_f32_array() }
+        .map_err(LibcameraError::InnerError)
+        .and_then(|v| v.try_into())
+        .or_else(|_| unsafe { pair.min.get().get_f32() }.map(|v| FloatPair(v, v)))?,
     )
   }
 }
@@ -411,6 +401,8 @@ pub enum CameraControlValue {
   Integer64(MinMaxValue<i64>),
   /// A control value containing a 32-bit float, e.g. brightness.
   Float(MinMaxValue<f32>),
+  /// A control value containing an array of 32-bit floats.
+  FloatArray(Vec<MinMaxValue<f32>>),
   /// A control value containing a String.
   String(MinMaxValue<String>),
   /// A control value containing a Rectangle
@@ -638,6 +630,7 @@ impl CameraControls {
           .is_ok(),
         "ColourGains" => (&control)
           .try_into()
+          .map_err(|e| eprintln!("Error converting: {e}"))
           .map(|control| controls.colour_gains = Some(control))
           .is_ok(),
         "Saturation" => (&control)
@@ -665,43 +658,35 @@ impl CameraControls {
       };
       if !did_name_match {
         let control_type = unsafe { control.id.get().get_type() };
-        if let Some(control_value) = match control_type {
-          ffi::CameraControlType::None => Some(CameraControlValue::None),
-          ffi::CameraControlType::Bool => (&control)
-            .try_into()
-            .or_else(|_| MinMaxValue::<i32>::try_from(&control).map(|v| v.into()))
-            .ok()
-            .map(CameraControlValue::Bool),
-          ffi::CameraControlType::Byte => (&control)
-            .try_into()
-            .or_else(|_| MinMaxValue::<i32>::try_from(&control).map(|v| v.into()))
-            .ok()
-            .map(CameraControlValue::Byte),
-          ffi::CameraControlType::Integer32 => (&control)
-            .try_into()
-            .ok()
-            .map(CameraControlValue::Integer32),
-          ffi::CameraControlType::Integer64 => (&control)
-            .try_into()
-            .or_else(|_| MinMaxValue::<i32>::try_from(&control).map(|v| v.into()))
-            .ok()
-            .map(CameraControlValue::Integer64),
-          ffi::CameraControlType::Float => (&control)
-            .try_into()
-            .or_else(|_| MinMaxValue::<i32>::try_from(&control).map(|v| v.into()))
-            .ok()
-            .map(CameraControlValue::Float),
+        let control_array = unsafe { control.value.get().is_array() };
+        let control_value = match (control_type, control_array) {
+          (ffi::CameraControlType::None, false) => Some(Ok(CameraControlValue::None)),
+          (ffi::CameraControlType::Bool, false) => {
+            Some((&control).try_into().map(CameraControlValue::Bool))
+          }
+          (ffi::CameraControlType::Byte, false) => {
+            Some((&control).try_into().map(CameraControlValue::Byte))
+          }
+          (ffi::CameraControlType::Integer32, false) => {
+            Some((&control).try_into().map(CameraControlValue::Integer32))
+          }
+          (ffi::CameraControlType::Integer64, false) => {
+            Some((&control).try_into().map(CameraControlValue::Integer64))
+          }
+          (ffi::CameraControlType::Float, false) => {
+            Some((&control).try_into().map(CameraControlValue::Float))
+          }
           _ => None,
-          // ffi::CameraControlType::String => (&control).try_into().ok().map(|control| CameraControlValue::String(control)),
-          // ffi::CameraControlType::Rectangle => (&control).try_into().ok().map(|control| CameraControlValue::Rectangle(control)),
-          // ffi::CameraControlType::Size => (&control).try_into().ok().map(|control| CameraControlValue::Size(control)),
-        } {
-          controls
-            .others
-            .insert(unsafe { control.id.get().get_id() }, (name, control_value));
-        } else {
-          eprintln!("Camera control with conflicting types: {name} is supposed to have type of {control_type:?}.");
-        }
+        };
+        match control_value {
+          Some(Ok(control_value)) => {
+            controls
+              .others
+              .insert(unsafe { control.id.get().get_id() }, (name, control_value));
+          }
+          Some(Err(e)) => eprintln!("Camera control with conflicting types: {name} is supposed to have type of {control_type:?}, err: {e}"),
+          None => eprintln!("Unknown type for camera control {name}."),
+        };
       }
     }
     controls
@@ -813,6 +798,15 @@ impl CameraControls {
         CameraControlValue::Float(value) => {
           Some(unsafe { ffi::new_control_value_f32(*value.get_value()) })
         }
+        CameraControlValue::FloatArray(value) => Some(unsafe {
+          ffi::new_control_value_f32_array(
+            value
+              .iter()
+              .map(|v| *v.get_value())
+              .collect::<Vec<_>>()
+              .as_slice(),
+          )
+        }),
         CameraControlValue::String(value) => {
           Some(unsafe { ffi::new_control_value_string(value.get_value()) })
         }

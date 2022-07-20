@@ -97,6 +97,10 @@ bool ControlValue::get_bool() const {
 uint8_t ControlValue::get_u8() const {
   if (this->inner.type() != libcamera::ControlType::ControlTypeByte ||
       this->inner.isArray()) {
+    if (this->inner.type() == libcamera::ControlType::ControlTypeInteger32 &&
+        !this->inner.isArray()) {
+      return static_cast<uint8_t>(this->get_i32());
+    }
     throw std::runtime_error("Bad type! Expected Single Byte.");
   }
   return this->inner.get<uint8_t>();
@@ -113,6 +117,10 @@ int32_t ControlValue::get_i32() const {
 int64_t ControlValue::get_i64() const {
   if (this->inner.type() != libcamera::ControlType::ControlTypeInteger64 ||
       this->inner.isArray()) {
+    if (this->inner.type() == libcamera::ControlType::ControlTypeInteger32 &&
+        !this->inner.isArray()) {
+      return static_cast<int64_t>(this->get_i32());
+    }
     throw std::runtime_error("Bad type! Expected Single I64.");
   }
   return this->inner.get<int64_t>();
@@ -121,6 +129,10 @@ int64_t ControlValue::get_i64() const {
 float ControlValue::get_f32() const {
   if (this->inner.type() != libcamera::ControlType::ControlTypeFloat ||
       this->inner.isArray()) {
+    if (this->inner.type() == libcamera::ControlType::ControlTypeInteger32 &&
+        !this->inner.isArray()) {
+      return static_cast<float>(this->get_i32());
+    }
     throw std::runtime_error("Bad type! Expected Single Float.");
   }
   return this->inner.get<float>();
