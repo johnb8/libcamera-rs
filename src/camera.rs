@@ -299,6 +299,9 @@ impl Camera<'_> {
   /// Errors if there are no buffers currently available (all buffers are in-use, if this happens take pictures slower!)
   pub fn capture_next_picture(&mut self, stream_id: usize) -> Result<u64> {
     let mut stream = &mut self.streams[stream_id];
+    if stream.buffers.len() == 0 {
+      return Err(LibcameraError::NoBufferReady);
+    }
     let buffer = &mut stream.buffers[stream.next_buffer];
     if buffer.request.is_none() {
       let request_id = self.next_request_id;

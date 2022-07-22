@@ -37,6 +37,8 @@ BindControlValue new_control_value_f32(float value) {
   return control_value;
 }
 
+#include <iostream>
+
 BindControlValue
 new_control_value_f32_array(rust::Slice<const float> values_rust) {
   std::vector<float> values;

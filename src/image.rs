@@ -257,7 +257,7 @@ pub struct Yuv420Image {
 
 impl CameraImage<3> for Yuv420Image {
   fn from_planes(width: usize, height: usize, planes: [Vec<u8>; 3]) -> Option<Yuv420Image> {
-    let [y_plane, u_plane, v_plane] = planes;
+    let [y_plane, v_plane, u_plane] = planes; // I wonder why this seems backwards?
     if width * height == y_plane.len()
       && width / 2 * height / 2 == u_plane.len()
       && width / 2 * height / 2 == v_plane.len()
@@ -303,7 +303,7 @@ impl CameraImage<3> for Yuv420Image {
         })
         .flat_map(|(&y, (u, v))| {
           // Convert to RGB
-          let (r, g, b) = yuv2rgb(y, u, v);
+          let (r, g, b) = yuv2rgb(y, v, u);
           [r, g, b]
         })
         .collect()],
