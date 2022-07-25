@@ -15,6 +15,7 @@ BindMemoryBuffer MemoryBuffer::sub_buffer(size_t offset, size_t length) {
 
 rust::Vec<uint8_t> MemoryBuffer::read_to_vec() const {
   rust::Vec<uint8_t> buf;
+  buf.reserve(this->length);
   for (size_t i = 0; i < this->length; i++) {
     // The point of this class is to safely wrap raw memory pointers.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)

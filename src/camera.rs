@@ -274,22 +274,6 @@ impl Camera<'_> {
     unsafe { self.inner.get_mut().start() }?;
     Ok(true)
   }
-  /// Stop the camera stream
-  pub fn stop_stream(&mut self) -> Result<()> {
-    unsafe { self.inner.get_mut().stop() }?;
-    for stream_config in self
-      .config
-      .as_ref()
-      .ok_or(LibcameraError::InvalidConfig)?
-      .streams()
-    {
-      let mut stream = unsafe { stream_config.get_inner().get().stream() };
-      unsafe { self.allocator.get_mut().free(stream.get_mut()) }?;
-    }
-    self.streams = Vec::new();
-    self.started = false;
-    Ok(())
-  }
   /// Start the process to capture an image from the camera.
   ///
   /// # Returns
@@ -299,7 +283,7 @@ impl Camera<'_> {
   /// Errors if there are no buffers currently available (all buffers are in-use, if this happens take pictures slower!)
   pub fn capture_next_picture(&mut self, stream_id: usize) -> Result<u64> {
     let mut stream = &mut self.streams[stream_id];
-    if stream.buffers.len() == 0 {
+    if stream.buffers.is_empty() {
       return Err(LibcameraError::NoBufferReady);
     }
     let buffer = &mut stream.buffers[stream.next_buffer];
@@ -336,7 +320,7 @@ impl Camera<'_> {
   /// Poll events from the camera.
   ///
   /// The results should be in order of when the camera sent them, but not neccesarily in order of when they were initially queued. Make sure to use `serial_id`, or the event `timestamp` to keep track of that if you need to.
-  pub fn poll_events(&mut self, match_id: Option<u64>) -> Result<Vec<CameraEvent>> {
+  pub fn poll_events<'a>(&'a mut self, match_id: Option<u64>) -> Result<Vec<CameraEvent>> {
     let events = if let Some(match_id) = match_id {
       unsafe { self.inner.get_mut().poll_events_with_cookie(match_id) }
     } else {
@@ -347,29 +331,28 @@ impl Camera<'_> {
         .into_iter()
         .flat_map(|event| match event.message_type {
           ffi::CameraMessageType::RequestComplete => {
-            println!("Ev: {event:?}");
             let request_id = event.request_cookie;
             let request_info = self.request_infos.remove(&request_id)?;
-            println!(
-              "Request completed on stream {}, buffer {}.",
-              request_info.stream_id, request_info.buffer_id
-            );
+            // eprintln!(
+            //   "Request completed on stream {}, buffer {}.",
+            //   request_info.stream_id, request_info.buffer_id
+            // );
             let stream = &mut self.streams[request_info.stream_id];
             let buffer = &mut stream.buffers[request_info.buffer_id];
             buffer.request = None;
-            println!("Pixel format: {:?}", stream.pixel_format);
+            let width = stream.width as usize;
+            let height = stream.height as usize;
+            let pixel_format = stream.pixel_format;
+
             Some(CameraEvent::RequestComplete {
               serial_id: request_id,
               queue_timestamp: request_info.timestamp,
-              image: RawCameraImage {
-                width: stream.width as usize,
-                height: stream.height as usize,
-                pixel_format: stream.pixel_format,
-                planes: buffer
-                  .planes
-                  .iter()
-                  .map(|plane| unsafe { plane.get().read_to_vec() })
-                  .collect(),
+              image: ImageBuffer {
+                width,
+                height,
+                pixel_format,
+                stream_id: request_info.stream_id,
+                buffer_id: request_info.buffer_id,
               },
             })
           }
@@ -406,6 +389,7 @@ impl RawCameraImage {
   ///
   /// Currently only supports Bgr, Rgb, Yuyv, and Yuv420 formats, and Mjpeg with the `image` feature.
   pub fn try_decode(self) -> Option<MultiImage> {
+    eprintln!("Tying to decode image...");
     match (self.pixel_format, self.planes.as_slice()) {
       (Some(PixelFormat::Bgr888), [data]) => {
         image::BgrImage::from_planes(self.width, self.height, [data.to_owned()])
@@ -419,23 +403,40 @@ impl RawCameraImage {
         image::YuyvImage::from_planes(self.width, self.height, [data.to_owned()])
           .map(MultiImage::Yuyv)
       }
-      (Some(PixelFormat::Yuv420), [y, u, v]) => image::Yuv420Image::from_planes(
-        self.width,
-        self.height,
-        [y.to_owned(), u.to_owned(), v.to_owned()],
-      )
-      .map(MultiImage::Yuv420),
+      (Some(PixelFormat::Yuv420), [y, u, v]) => {
+        eprintln!(
+          "Decoding YUV with size {}x{} and plane sizes {} {} {}",
+          self.width,
+          self.height,
+          y.len(),
+          u.len(),
+          v.len()
+        );
+        image::Yuv420Image::from_planes(
+          self.width,
+          self.height,
+          [y.to_owned(), u.to_owned(), v.to_owned()],
+        )
+        .map(MultiImage::Yuv420)
+      }
       #[cfg(feature = "image")]
       (Some(PixelFormat::Mjpeg), [data]) => {
         image::RgbImage::decode_jpeg(data).ok().map(MultiImage::Rgb)
       }
-      _ => None,
+      (fmt, planes) => {
+        eprintln!(
+          "Image is of unknown format: {:?} with {} planes",
+          fmt,
+          planes.len()
+        );
+        None
+      }
     }
   }
 }
 
 /// Represents an event from the camera
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum CameraEvent {
   /// Triggered when a capture request has completed, containing a vec of the resulting image planes.
@@ -444,9 +445,57 @@ pub enum CameraEvent {
     serial_id: u64,
     /// When this event was __queued__ to the camera.
     queue_timestamp: Instant,
-    /// The raw image data for this request, might not actually contain a real image (at the moment there isn't any way of determining success as far as I can tell).
-    image: RawCameraImage,
+    /// A reference to the image buffer for this request.
+    /// Contains the raw image data for this request, might not actually contain a real image (at the moment there isn't any way of determining success as far as I can tell).
+    ///
+    /// The user is responsibe for immediately polling this otherwise the image might be overridden by a newer one (typically in around ~67ms).
+    image: ImageBuffer,
   },
+}
+
+/// References a camera buffer that you can read an image from.
+#[derive(Clone)]
+#[non_exhaustive]
+pub struct ImageBuffer {
+  /// The pixel format for the image, if it is known.
+  pub pixel_format: Option<PixelFormat>,
+  /// The width of the image.
+  pub width: usize,
+  /// The height of the image.
+  pub height: usize,
+  stream_id: usize,
+  buffer_id: usize,
+}
+
+impl Debug for ImageBuffer {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("ImageBuffer")
+      .field("pixel_format", &self.pixel_format)
+      .field("width", &self.width)
+      .field("height", &self.height)
+      .field("stream_id", &self.stream_id)
+      .field("buffer_id", &self.buffer_id)
+      .finish_non_exhaustive()
+  }
+}
+
+impl ImageBuffer {
+  /// Read the image into a [RawCameraImage].
+  ///
+  /// This function is *slow* especially in a debug build.
+  pub fn read_image(self, cam: &Camera<'_>) -> RawCameraImage {
+    eprintln!("Reading image...");
+    RawCameraImage {
+      pixel_format: self.pixel_format,
+      width: self.width,
+      height: self.height,
+      planes: cam.streams[self.stream_id].buffers[self.buffer_id]
+        .planes
+        .iter()
+        .map(|plane| unsafe { plane.get().read_to_vec() })
+        .collect(),
+    }
+  }
 }
 
 /// Represents the result of applying a configuration to a camera.
