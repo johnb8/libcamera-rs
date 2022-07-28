@@ -17,29 +17,27 @@ libcamera::Request *Request::into_ptr() {
   return this->inner.get();
 }
 
-#include <iostream>
-
-BindControlValue Request::get_control(uint32_t id) const {
+BindControlValue Request::get_control(uint32_t control_id) const {
   VALIDATE_POINTERS()
 
   libcamera::ControlList &controls = this->inner->controls();
 
-  if (!controls.contains(id)) {
+  if (!controls.contains(control_id)) {
     throw std::runtime_error(
         "No control has been set in this request with the specified id.");
   }
   BindControlValue control_value{
-      .inner = std::make_unique<ControlValue>(controls.get(id)),
+      .inner = std::make_unique<ControlValue>(controls.get(control_id)),
   };
   return control_value;
 }
 
-void Request::set_control(uint32_t id, const ControlValue &value) {
+void Request::set_control(uint32_t control_, const ControlValue &value) {
   VALIDATE_POINTERS()
 
   libcamera::ControlList &controls = this->inner->controls();
 
-  controls.set(id, value.get_inner());
+  controls.set(control_, value.get_inner());
 }
 
 rust::String Request::raw_to_string() const {

@@ -4,6 +4,8 @@ use std::marker::PhantomData;
 use std::sync::RwLock;
 use std::time::Instant;
 
+use log::{debug, trace};
+
 use crate::bridge::{ffi, GetInner};
 use crate::config::{CameraConfig, PixelFormat};
 use crate::controls::CameraControls;
@@ -202,6 +204,8 @@ impl Camera<'_> {
     // We also must create a request for each buffer that we can re-use later every time we need an image.
     // Technically requests can have multiple buffers, but I don't think know why this would be the case and I don't think it's necessary.
 
+    debug!("Starting camera...");
+
     // For each stream...
     for stream_config in self
       .config
@@ -209,7 +213,7 @@ impl Camera<'_> {
       .ok_or(LibcameraError::InvalidConfig)?
       .streams()
     {
-      println!("Stream config: {stream_config:?}");
+      trace!("Stream config: {stream_config:?}");
       let mut stream = unsafe { stream_config.get_inner().get().stream() };
       // Allocate buffers
       let _buffer_count = unsafe { self.allocator.get_mut().allocate(stream.get_mut()) };
@@ -222,7 +226,7 @@ impl Camera<'_> {
         next_buffer: 0,
         buffers: Vec::new(),
       };
-      println!("Camera stream: {camera_stream:?}");
+      trace!("Camera stream: {camera_stream:?}");
       // Map memory for buffers
       for mut buffer in unsafe { self.allocator.get().buffers(camera_stream.stream.get_mut()) } {
         let buffer_id = camera_stream.buffers.len();
@@ -320,7 +324,7 @@ impl Camera<'_> {
   /// Poll events from the camera.
   ///
   /// The results should be in order of when the camera sent them, but not neccesarily in order of when they were initially queued. Make sure to use `serial_id`, or the event `timestamp` to keep track of that if you need to.
-  pub fn poll_events<'a>(&'a mut self, match_id: Option<u64>) -> Result<Vec<CameraEvent>> {
+  pub fn poll_events(&mut self, match_id: Option<u64>) -> Result<Vec<CameraEvent>> {
     let events = if let Some(match_id) = match_id {
       unsafe { self.inner.get_mut().poll_events_with_cookie(match_id) }
     } else {
@@ -333,10 +337,11 @@ impl Camera<'_> {
           ffi::CameraMessageType::RequestComplete => {
             let request_id = event.request_cookie;
             let request_info = self.request_infos.remove(&request_id)?;
-            // eprintln!(
-            //   "Request completed on stream {}, buffer {}.",
-            //   request_info.stream_id, request_info.buffer_id
-            // );
+            trace!(
+              "Request completed on stream {}, buffer {}.",
+              request_info.stream_id,
+              request_info.buffer_id
+            );
             let stream = &mut self.streams[request_info.stream_id];
             let buffer = &mut stream.buffers[request_info.buffer_id];
             buffer.request = None;
@@ -389,7 +394,7 @@ impl RawCameraImage {
   ///
   /// Currently only supports Bgr, Rgb, Yuyv, and Yuv420 formats, and Mjpeg with the `image` feature.
   pub fn try_decode(self) -> Option<MultiImage> {
-    eprintln!("Tying to decode image...");
+    debug!("Tying to decode image...");
     match (self.pixel_format, self.planes.as_slice()) {
       (Some(PixelFormat::Bgr888), [data]) => {
         image::BgrImage::from_planes(self.width, self.height, [data.to_owned()])
@@ -404,7 +409,7 @@ impl RawCameraImage {
           .map(MultiImage::Yuyv)
       }
       (Some(PixelFormat::Yuv420), [y, u, v]) => {
-        eprintln!(
+        trace!(
           "Decoding YUV with size {}x{} and plane sizes {} {} {}",
           self.width,
           self.height,
@@ -424,7 +429,7 @@ impl RawCameraImage {
         image::RgbImage::decode_jpeg(data).ok().map(MultiImage::Rgb)
       }
       (fmt, planes) => {
-        eprintln!(
+        trace!(
           "Image is of unknown format: {:?} with {} planes",
           fmt,
           planes.len()
@@ -484,16 +489,19 @@ impl ImageBuffer {
   ///
   /// This function is *slow* especially in a debug build.
   pub fn read_image(self, cam: &Camera<'_>) -> RawCameraImage {
-    eprintln!("Reading image...");
+    trace!("Reading image from buffer...");
+    let start = Instant::now();
+    let planes = cam.streams[self.stream_id].buffers[self.buffer_id]
+      .planes
+      .iter()
+      .map(|plane| unsafe { plane.get().read_to_vec() })
+      .collect();
+    debug!("Read image from buffer in {:?}", start.elapsed());
     RawCameraImage {
       pixel_format: self.pixel_format,
       width: self.width,
       height: self.height,
-      planes: cam.streams[self.stream_id].buffers[self.buffer_id]
-        .planes
-        .iter()
-        .map(|plane| unsafe { plane.get().read_to_vec() })
-        .collect(),
+      planes,
     }
   }
 }

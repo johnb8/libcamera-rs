@@ -1,3 +1,5 @@
+use log::trace;
+
 use crate::{LibcameraError, Result};
 
 /// Represents an image.
@@ -158,10 +160,10 @@ impl RgbImage {
   /// Available only with the `image` feature/crate.
   pub fn decode_jpeg(data: &[u8]) -> Result<RgbImage> {
     let image = image::load_from_memory_with_format(data, image::ImageFormat::Jpeg)?;
-    println!("Image loaded");
+    trace!("Image loaded");
     if let image::DynamicImage::ImageRgb8(img) = image {
       let (width, height) = img.dimensions();
-      println!("JPEG image size {width}x{height}.");
+      trace!("JPEG image size {width}x{height}.");
       Ok(
         RgbImage::from_planes(width as usize, height as usize, [img.into_raw()])
           .ok_or(LibcameraError::BadImageFormat)?,

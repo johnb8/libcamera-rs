@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::ops::RangeInclusive;
 
+use log::{error, warn};
+
 use crate::bridge::{ffi, GetInner};
 use crate::{LibcameraError, Result};
 
@@ -632,7 +634,6 @@ impl CameraControls {
           .is_ok(),
         "ColourGains" => (&control)
           .try_into()
-          .map_err(|e| eprintln!("Error converting: {e}"))
           .map(|control| controls.colour_gains = Some(control))
           .is_ok(),
         "Saturation" => (&control)
@@ -686,8 +687,8 @@ impl CameraControls {
               .others
               .insert(unsafe { control.id.get().get_id() }, (name, control_value));
           }
-          Some(Err(e)) => eprintln!("Camera control with conflicting types: {name} is supposed to have type of {control_type:?}, err: {e}"),
-          None => eprintln!("Unknown type for camera control {name}."),
+          Some(Err(e)) => error!("Camera control with conflicting types: {name} is supposed to have type of {control_type:?}, err: {e}"),
+          None => warn!("Unknown type for camera control {name}."),
         };
       }
     }

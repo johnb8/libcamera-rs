@@ -38,7 +38,7 @@ fn main() {
           serial_id, image, ..
         } => {
           // Reencode the image to PNG and save it.
-          let decoded_image = image.try_decode().unwrap();
+          let decoded_image = image.read_image(&cam).try_decode().unwrap();
           let rgb_image = decoded_image
             .as_bgr()
             .unwrap()

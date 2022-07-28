@@ -37,14 +37,13 @@ rust::Vec<rust::String> CameraManager::get_camera_ids() const {
   return camera_ids;
 }
 
-BindCamera CameraManager::get_camera_by_id(rust::Str id) {
+BindCamera CameraManager::get_camera_by_id(rust::Str rust_id) {
   VALIDATE_POINTERS()
 
-  std::string cam_id = std::string(id);
+  std::string cam_id = std::string(rust_id);
   std::shared_ptr<libcamera::Camera> cam = this->inner->get(cam_id);
-  size_t uc = cam.use_count(); // C++ header mismatch will cause this to be
-                               // completely silly
-  if (!cam || uc > INT_MAX) {
+  // C++ header mismatch will cause this to be completely silly
+  if (!cam || cam.use_count() > INT_MAX) {
     throw error_from_code(ENODEV);
   }
   BindCamera bind_cam{

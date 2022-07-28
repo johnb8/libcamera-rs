@@ -37,8 +37,6 @@ BindControlValue new_control_value_f32(float value) {
   return control_value;
 }
 
-#include <iostream>
-
 BindControlValue
 new_control_value_f32_array(rust::Slice<const float> values_rust) {
   std::vector<float> values;
@@ -147,8 +145,8 @@ rust::Vec<float> ControlValue::get_f32_array() const {
   }
   auto span = this->inner.get<libcamera::Span<const float>>();
   rust::Vec<float> values;
-  for (float f : span) {
-    values.push_back(f);
+  for (float value : span) {
+    values.push_back(value);
   }
   return values;
 }

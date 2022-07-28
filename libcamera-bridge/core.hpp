@@ -208,7 +208,7 @@ public:
   uint64_t get_cookie() const;
 };
 
-size_t fd_len(int fd);
+size_t fd_len(int file);
 
 struct FrameBufferPlane {
 private:
@@ -225,7 +225,7 @@ public:
 
 // File descriptor functions
 
-BindMemoryBuffer mmap_plane(int fd, size_t len);
+BindMemoryBuffer mmap_plane(int file, size_t len);
 
 struct MemoryBuffer {
 private:
@@ -251,7 +251,7 @@ public:
 
   void add_buffer(const Stream &stream, FrameBuffer &buffer);
   BindControlValue get_control(uint32_t id) const;
-  void set_control(uint32_t id, const ControlValue &value);
+  void set_control(uint32_t control_, const ControlValue &value);
   [[nodiscard]] rust::String raw_to_string() const;
 };
 

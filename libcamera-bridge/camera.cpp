@@ -5,20 +5,21 @@
 Camera::Camera(std::shared_ptr<libcamera::Camera> inner_)
     : inner{std::move(inner_)} {
   this->inner->bufferCompleted.connect(
-      this, [&](libcamera::Request *req, libcamera::FrameBuffer *fb) {
+      this,
+      [&](libcamera::Request *request, libcamera::FrameBuffer *framebuffer) {
         this->message_mutex.lock();
         this->message_queue.push(CameraMessage{
             .message_type = CameraMessageType::BufferComplete,
-            .request_cookie = req->cookie(),
-            .buffer_cookie = fb->cookie(),
+            .request_cookie = request->cookie(),
+            .buffer_cookie = framebuffer->cookie(),
         });
         this->message_mutex.unlock();
       });
-  this->inner->requestCompleted.connect(this, [&](libcamera::Request *req) {
+  this->inner->requestCompleted.connect(this, [&](libcamera::Request *request) {
     this->message_mutex.lock();
     this->message_queue.push(CameraMessage{
         .message_type = CameraMessageType::RequestComplete,
-        .request_cookie = req->cookie(),
+        .request_cookie = request->cookie(),
         .buffer_cookie = 0,
     });
     this->message_mutex.unlock();

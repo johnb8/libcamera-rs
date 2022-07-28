@@ -30,7 +30,7 @@ fn test_camera() {
         CameraEvent::RequestComplete {
           serial_id, image, ..
         } => {
-          let decoded_image = image.try_decode().unwrap();
+          let decoded_image = image.read_image(&cam).try_decode().unwrap();
           let rgb_image = decoded_image
             .as_bgr()
             .unwrap()
@@ -70,22 +70,4 @@ fn try_start_before_configure() {
     Err(LibcameraError::InvalidConfig)
   ));
   cam.generate_config(&[StreamRole::Viewfinder]).unwrap();
-}
-
-#[test]
-fn stop_start_stream() {
-  let cm = CameraManager::new().unwrap();
-  let mut cam = cm.get_camera_by_name(&cm.get_camera_names()[0]).unwrap();
-  let conf = cam.generate_config(&[StreamRole::Viewfinder]).unwrap();
-  let stream = &mut conf.streams_mut()[0];
-  stream.set_pixel_format(PixelFormat::Yuv420);
-  stream.set_size(640, 480);
-  cam.apply_config().unwrap();
-  for _i in 0..6 {
-    cam.start_stream().unwrap();
-    cam.capture_next_picture(0).unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(500));
-    cam.poll_events(None).unwrap();
-    cam.stop_stream().unwrap();
-  }
 }
