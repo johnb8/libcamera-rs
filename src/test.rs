@@ -57,7 +57,7 @@ fn panic_with_camera() {
   cam.generate_config(&[StreamRole::Viewfinder]).unwrap();
   cam.apply_config().unwrap();
   cam.start_stream().unwrap();
-  panic!("Ah!");
+  panic!("Success");
 }
 
 #[test]
@@ -70,4 +70,32 @@ fn try_start_before_configure() {
     Err(LibcameraError::InvalidConfig)
   ));
   cam.generate_config(&[StreamRole::Viewfinder]).unwrap();
+}
+
+#[test]
+fn capture_then_drop() {
+  // Wait to ensure we can lock the camera (when running many tests back-to-back).
+  std::thread::sleep(std::time::Duration::from_secs(5));
+  let cm = CameraManager::new().unwrap();
+  let mut cam = cm.get_camera_by_name(&cm.get_camera_names()[0]).unwrap();
+  cam.generate_config(&[StreamRole::Viewfinder]).unwrap();
+  cam.apply_config().unwrap();
+  cam.start_stream().unwrap();
+  cam.capture_next_picture(0).unwrap();
+  cam.capture_next_picture(0).unwrap();
+}
+
+#[test]
+#[should_panic]
+fn capture_then_panic() {
+  // Wait to ensure we can lock the camera (when running many tests back-to-back).
+  std::thread::sleep(std::time::Duration::from_secs(5));
+  let cm = CameraManager::new().unwrap();
+  let mut cam = cm.get_camera_by_name(&cm.get_camera_names()[0]).unwrap();
+  cam.generate_config(&[StreamRole::Viewfinder]).unwrap();
+  cam.apply_config().unwrap();
+  cam.start_stream().unwrap();
+  cam.capture_next_picture(0).unwrap();
+  cam.capture_next_picture(0).unwrap();
+  panic!("Success");
 }

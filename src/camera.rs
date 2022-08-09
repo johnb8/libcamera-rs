@@ -370,6 +370,14 @@ impl Camera<'_> {
 
 impl Drop for Camera<'_> {
   fn drop(&mut self) {
+    // Ensure there are no outstanding requests before deallocating everything.
+    // TODO: It would potentially be a better idea to use a thread to hold on to important c++ references instead of blocking here.
+    while !self.request_infos.is_empty() {
+      std::thread::sleep(std::time::Duration::from_millis(50));
+      for event in unsafe { self.inner.get_mut().poll_events() } {
+        self.request_infos.remove(&event.request_cookie);
+      }
+    }
     self.streams = Vec::new();
     unsafe { self.inner.get_mut().stop() }.unwrap();
     unsafe { self.inner.get_mut().release() }.unwrap();

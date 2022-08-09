@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::ops::RangeInclusive;
 
-use log::{error, trace, warn};
+use log::{error, warn};
 
 use crate::bridge::{ffi, GetInner};
 use crate::{LibcameraError, Result};
@@ -823,11 +823,11 @@ impl CameraControls {
         controls.push((*id, value));
       }
     }
-    for (id, control) in &controls {
-      trace!("Setting control {id} to {}", unsafe {
-        control.get().raw_to_string()
-      });
-    }
+    // for (id, control) in &controls {
+    //   trace!("Setting control {id} to {}", unsafe {
+    //     control.get().raw_to_string()
+    //   });
+    // }
     controls
   }
 }
