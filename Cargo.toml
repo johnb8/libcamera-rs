@@ -14,5 +14,9 @@ image = { version = "0.24", optional = true }
 [build-dependencies]
 cxx-build = "1.0"
 
+[dev-dependencies]
+lazy_static = "1"
+simplelog = "0.12"
+
 [features]
 default = [ "image" ]

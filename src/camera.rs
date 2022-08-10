@@ -370,6 +370,7 @@ impl Camera<'_> {
 
 impl Drop for Camera<'_> {
   fn drop(&mut self) {
+    log::trace!("Waiting for requests to complete before dropping camera...");
     // Ensure there are no outstanding requests before deallocating everything.
     // TODO: It would potentially be a better idea to use a thread to hold on to important c++ references instead of blocking here.
     while !self.request_infos.is_empty() {
@@ -378,9 +379,11 @@ impl Drop for Camera<'_> {
         self.request_infos.remove(&event.request_cookie);
       }
     }
+    log::trace!("Stopping camera...");
     self.streams = Vec::new();
     unsafe { self.inner.get_mut().stop() }.unwrap();
     unsafe { self.inner.get_mut().release() }.unwrap();
+    log::trace!("Dropping camera...");
   }
 }
 
