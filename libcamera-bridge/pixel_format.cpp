@@ -34,6 +34,9 @@ BindPixelFormat get_default_pixel_format(DefaultPixelFormat default_format) {
   case DefaultPixelFormat::Mjpeg:
     fmt = &libcamera::formats::MJPEG;
     break;
+  case DefaultPixelFormat::Nv12:
+    fmt = &libcamera::formats::NV12;
+    break;
   }
   if (fmt == nullptr) {
     throw std::runtime_error("Unknown default pixel format.");
@@ -71,6 +74,9 @@ DefaultPixelFormat PixelFormat::as_default_pixel_format() const {
   }
   if (this->inner == libcamera::formats::MJPEG) {
     return DefaultPixelFormat::Mjpeg;
+  }
+  if (this->inner == libcamera::formats::NV12) {
+    return DefaultPixelFormat::Nv12;
   }
   throw std::runtime_error("Unknown pixel format.");
 }

@@ -439,6 +439,17 @@ impl RawCameraImage {
       (Some(PixelFormat::Mjpeg), [data]) => {
         image::RgbImage::decode_jpeg(data).ok().map(MultiImage::Rgb)
       }
+      (Some(PixelFormat::Nv12), [y, uv]) => {
+        trace!(
+          "Decoding NV12 with size {}x{} and plane sizes {} {}",
+          self.width,
+          self.height,
+          y.len(),
+          uv.len(),
+        );
+        image::Nv12Image::from_planes(self.width, self.height, [y.to_owned(), uv.to_owned()])
+          .map(MultiImage::Nv12)
+      }
       (fmt, planes) => {
         trace!(
           "Image is of unknown format: {:?} with {} planes",

@@ -28,6 +28,8 @@ pub enum MultiImage {
   Yuyv(YuyvImage),
   /// Image in the YUV 4:2:0 format.
   Yuv420(Yuv420Image),
+  /// Image in the NV12 (YUV 4:2:0, interleaved U/V) format.
+  Nv12(Nv12Image),
 }
 
 impl MultiImage {
@@ -38,6 +40,7 @@ impl MultiImage {
       MultiImage::Rgb(img) => img.as_bgr(),
       MultiImage::Yuyv(img) => img.as_bgr(),
       MultiImage::Yuv420(img) => img.as_bgr(),
+      MultiImage::Nv12(img) => img.as_bgr(),
     }
   }
   /// Get the size of this image.
@@ -47,6 +50,7 @@ impl MultiImage {
       MultiImage::Rgb(img) => img.get_size(),
       MultiImage::Yuyv(img) => img.get_size(),
       MultiImage::Yuv420(img) => img.get_size(),
+      MultiImage::Nv12(img) => img.get_size(),
     }
   }
 }
@@ -276,45 +280,76 @@ impl CameraImage<3> for Yuv420Image {
     }
   }
   fn as_bgr(&self) -> Option<BgrImage> {
-    BgrImage::from_planes(
-      self.width,
-      self.height,
-      [self
-        .y_plane
-        .chunks_exact(self.width) // Get each line of y*
-        .zip(
-          // Zip it with each line of u* and v* (half width+height)
-          self
-            .u_plane // For the u plane...
-            .chunks_exact(self.width / 2)
-            .map(|line| line.iter().flat_map(|&u| [u, u])) // Double the width
-            .zip(
-              // Zip the u and v planes
-              self
-                .v_plane // For the v plane...
-                .chunks_exact(self.width / 2)
-                .map(|line| line.iter().flat_map(|&v| [v, v])), // Double the width
-            )
-            .flat_map(|line| [line.clone(), line]), // Double the height
-        )
-        .flat_map(|(y_line, (u_line, v_line))| {
-          // Re-zip y*, u* and v* per-pixel instead of per-line.
-          y_line
-            .iter()
-            .zip(u_line.into_iter().zip(v_line.into_iter()))
-        })
-        .flat_map(|(&y, (u, v))| {
-          // Convert to RGB
-          let (r, g, b) = yuv2rgb(y, v, u);
-          [r, g, b]
-        })
-        .collect()],
-    )
+    let mut new_plane = Vec::new();
+    new_plane.reserve_exact(self.width * self.height * 3);
+    for y in 0..self.height {
+      for x in 0..self.width {
+        let (y, u, v) = (
+          self.y_plane[y * self.width + x],
+          self.u_plane[y / 2 * self.width / 2 + x / 2],
+          self.v_plane[y / 2 * self.width / 2 + x / 2],
+        );
+        let (r, g, b) = yuv2rgb(y, u, v);
+        new_plane.push(b);
+        new_plane.push(g);
+        new_plane.push(r);
+      }
+    }
+    BgrImage::from_planes(self.width, self.height, [new_plane])
   }
   fn get_size(&self) -> (usize, usize) {
     (self.width, self.height)
   }
   fn get_planes(&self) -> [&[u8]; 3] {
     [&self.y_plane, &self.u_plane, &self.v_plane]
+  }
+}
+
+/// Contains an image in NV12 (YUV 4:2:0, interleaved U/V) Format.
+#[derive(Debug, Clone)]
+pub struct Nv12Image {
+  width: usize,
+  height: usize,
+  y_plane: Vec<u8>,
+  uv_plane: Vec<u8>,
+}
+
+impl CameraImage<2> for Nv12Image {
+  fn from_planes(width: usize, height: usize, planes: [Vec<u8>; 2]) -> Option<Nv12Image> {
+    let [y_plane, uv_plane] = planes;
+    if width * height == y_plane.len() && width / 2 * height / 2 * 2 == uv_plane.len() {
+      Some(Nv12Image {
+        width,
+        height,
+        y_plane,
+        uv_plane,
+      })
+    } else {
+      None
+    }
+  }
+  fn as_bgr(&self) -> Option<BgrImage> {
+    let mut new_plane = Vec::new();
+    new_plane.reserve_exact(self.width * self.height * 3);
+    for y in 0..self.height {
+      for x in 0..self.width {
+        let (y, u, v) = (
+          self.y_plane[y * self.width + x],
+          self.uv_plane[(y / 2 * self.width / 2 + x / 2) * 2],
+          self.uv_plane[(y / 2 * self.width / 2 + x / 2) * 2 + 1],
+        );
+        let (r, g, b) = yuv2rgb(y, u, v);
+        new_plane.push(b);
+        new_plane.push(g);
+        new_plane.push(r);
+      }
+    }
+    BgrImage::from_planes(self.width, self.height, [new_plane])
+  }
+  fn get_size(&self) -> (usize, usize) {
+    (self.width, self.height)
+  }
+  fn get_planes(&self) -> [&[u8]; 2] {
+    [&self.y_plane, &self.uv_plane]
   }
 }

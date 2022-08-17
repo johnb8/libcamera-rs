@@ -105,7 +105,7 @@ fn capture_then_panic() {
 lazy_static::lazy_static! {
   static ref CAMERA_MANAGER: CameraManager = {
     let cm = CameraManager::new().unwrap();
-    println!("Camera Manager: {cm:?}");
+    log::debug!("Camera Manager: {cm:?}");
     cm
   };
 }
