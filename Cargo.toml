@@ -4,6 +4,7 @@ description = "Libcamera bindings for rust."
 authors = ["John Brandt <johnb0@outlook.com>", "Ben Heard <benpheard@gmail.com>"]
 version = "0.1.0"
 edition = "2021"
+license = "ISC"
 
 [dependencies]
 cxx = "1.0"
