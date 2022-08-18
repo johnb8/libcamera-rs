@@ -823,11 +823,6 @@ impl CameraControls {
         controls.push((*id, value));
       }
     }
-    for (id, control) in &controls {
-      trace!("Setting control {id} to {}", unsafe {
-        control.get().raw_to_string()
-      });
-    }
     controls
   }
 }

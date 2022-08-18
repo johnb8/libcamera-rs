@@ -337,11 +337,11 @@ impl Camera<'_> {
           ffi::CameraMessageType::RequestComplete => {
             let request_id = event.request_cookie;
             let request_info = self.request_infos.remove(&request_id)?;
-            trace!(
-              "Request completed on stream {}, buffer {}.",
-              request_info.stream_id,
-              request_info.buffer_id
-            );
+            // trace!(
+            //   "Request completed on stream {}, buffer {}.",
+            //   request_info.stream_id,
+            //   request_info.buffer_id
+            // );
             let stream = &mut self.streams[request_info.stream_id];
             let buffer = &mut stream.buffers[request_info.buffer_id];
             buffer.request = None;
