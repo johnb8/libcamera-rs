@@ -95,7 +95,7 @@ impl BgrImage {
       self.height,
       [self
         .data
-        .chunks(3)
+        .chunks_exact(3)
         .flat_map(|chunk| {
           if let &[b, g, r] = chunk {
             [r, g, b]
@@ -137,7 +137,7 @@ impl CameraImage<1> for RgbImage {
       self.height,
       [self
         .data
-        .chunks(3)
+        .chunks_exact(3)
         .flat_map(|chunk| {
           if let &[r, g, b] = chunk {
             [b, g, r]
