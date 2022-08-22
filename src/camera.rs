@@ -511,12 +511,16 @@ impl ImageBuffer {
   ///
   /// This function is *slow* especially in a debug build.
   pub fn read_image(self, cam: &Camera<'_>) -> RawCameraImage {
-    trace!("Reading image from buffer...");
     let start = Instant::now();
     let planes = cam.streams[self.stream_id].buffers[self.buffer_id]
       .planes
       .iter()
-      .map(|plane| unsafe { plane.get().read_to_vec() })
+      .map(|plane| {
+        //let buf = unsafe { plane.get().read_to_vec() };
+        let mut buf = vec![0; unsafe { plane.get().get_len() }];
+        unsafe { plane.get().read_to_mut_slice(&mut buf) };
+        buf
+      })
       .collect();
     debug!("Read image from buffer in {:?}", start.elapsed());
     RawCameraImage {

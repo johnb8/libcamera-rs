@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::ops::RangeInclusive;
 
-use log::{error, trace, warn};
+use log::{error, warn};
 
 use crate::bridge::{ffi, GetInner};
 use crate::{LibcameraError, Result};

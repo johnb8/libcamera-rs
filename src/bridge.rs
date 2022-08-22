@@ -335,6 +335,8 @@ pub mod ffi {
       length: usize,
     ) -> Result<BindMemoryBuffer>;
     pub unsafe fn read_to_vec(self: &MemoryBuffer) -> Vec<u8>;
+    pub unsafe fn get_len(self: &MemoryBuffer) -> usize;
+    pub unsafe fn read_to_mut_slice(self: &MemoryBuffer, buf: &mut [u8]) -> usize;
 
     type Request;
     pub unsafe fn add_buffer(

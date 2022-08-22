@@ -238,6 +238,8 @@ public:
 
   BindMemoryBuffer sub_buffer(size_t offset, size_t length);
   [[nodiscard]] rust::Vec<uint8_t> read_to_vec() const;
+  size_t get_len() const;
+  size_t read_to_mut_slice(rust::Slice<uint8_t> buf) const;
 };
 
 struct Request {
