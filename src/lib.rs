@@ -1,30 +1,20 @@
+#![warn(missing_docs)]
+#![doc = include_str!("../readme.md")]
+
 mod bridge;
-
-pub use bridge::ffi;
-
+/// Handles interfacing with cameras, get started using a CameraManager.
+pub mod camera;
+/// Camera and stream configuration, e.g. how many streams, resolutions, and pixel formats.
+pub mod config;
+/// Camera (runtime) controls, e.g. brightness, contrast.
+pub mod controls;
+/// Errors
+pub mod error;
+/// Decoding images from the camera
+pub mod image;
+/// All the things you *should* need to get started.
+pub mod prelude;
 #[cfg(test)]
-mod tests {
-    use crate::ffi;
-    use crate::bridge::MutFromSharedPtr;
+mod test;
 
-    #[test]
-    fn it_works() {
-        let mut manager = ffi::make_camera_manager();
-        manager.pin_mut().version();
-    }
-
-    #[test]
-    fn generate_configuration() {
-        let mut manager = ffi::make_camera_manager();
-        manager.pin_mut().start().unwrap();
-
-        let mut cameras = manager.pin_mut().cameras();
-        let camera = &mut cameras[0];
-
-        let roles = vec![ffi::StreamRole::StillCapture];
-
-        let mut config = camera.inner.pin_mut().generate_configuration(&roles);
-
-        assert_eq!(config.pin_mut().validate(), ffi::CameraConfigurationStatus::Valid);
-    }
-}
+pub use error::{LibcameraError, Result};

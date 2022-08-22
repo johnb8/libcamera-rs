@@ -1,0 +1,13 @@
+Checks: "
+  -checks=clang-diagnostic-*,
+  clang-analyzer-*,
+  modernize-*,
+  cppcoreguidelines-*,
+  readability-*,
+  portability-*,
+  bugprone-*,
+  llvm-*,
+  cert-*,
+  hicpp-*,
+  -hicpp-exception-baseclass,
+  -modernize-use-trailing-return-type"

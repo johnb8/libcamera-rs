@@ -1,5 +1,10 @@
 .idea
 .vscode
+*.bak~
 
 /target
 Cargo.lock
+
+plane_*.bin
+image_*.png
+tmp.bgr
